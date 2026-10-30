@@ -169,6 +169,11 @@ class RadioBrowserClient:
     def offline(self) -> bool:
         return time.monotonic() < self._offline_until
 
+    def reset_offline(self) -> None:
+        """Allow an immediate retry after the user asks for a refresh."""
+        self._offline_until = 0.0
+        self._base = self.base_url
+
     def _mark_offline(self) -> None:
         self._offline_until = time.monotonic() + OFFLINE_COOLDOWN
 
@@ -272,6 +277,9 @@ class RadioBrowserClient:
             self.seed_stations(), key=lambda s: (s.clicks, s.votes), reverse=True
         )
         return stations[:limit]
+
+    def seed_countries(self) -> list[Country]:
+        return self._seed_countries()
 
     # -- public lookups ----------------------------------------------------
 

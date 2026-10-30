@@ -327,3 +327,36 @@ def test_seed_cache_key_is_stable(tmp_path):
     assert client.cache_key("world") == "world"
     assert client.cache_key("country", "US") == "country-US"
     assert client.cache_key("countries") == "countries"
+
+
+async def test_reset_offline_allows_an_immediate_retry(tmp_path):
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls <= 2:
+            raise httpx.ConnectError("unreachable", request=request)
+        return httpx.Response(200, json=[record("u1", "Back Online")])
+
+    client = make_client(tmp_path, handler)
+    first = await client.world()
+    assert first.source == "seed"
+    assert client.offline is True
+
+    client.reset_offline()
+    second = await client.world()
+    await client.close()
+
+    assert client.offline is False
+    assert second.source == "network"
+    assert [station.name for station in second.stations] == ["Back Online"]
+
+
+def test_seed_countries_are_derived_from_the_bundled_catalog(tmp_path):
+    client = RadioBrowserClient(cache=DiskCache(tmp_path / "cache"))
+    countries = {country.code: country for country in client.seed_countries()}
+    assert countries["US"].station_count > 0
+    assert countries["FR"].name == "France"
+    assert countries["US"].latitude is not None
+
