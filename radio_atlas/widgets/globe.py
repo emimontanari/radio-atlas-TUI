@@ -23,15 +23,15 @@ from ..globe import (
 from ..models import Country, Station
 
 STYLE_COLORS = {
-    STYLE_OCEAN: "on #070d1b",
-    STYLE_LAND: "#2dd4bf",
-    STYLE_FOCUS: "bold #fbbf24",
-    STYLE_RIM: "#1e3a5f",
-    STYLE_STATION: "#fb7185",
-    STYLE_PLAYING: "bold #34d399",
-    STYLE_FAVORITE: "bold #fbbf24",
-    STYLE_SELECTED: "bold #e879f9",
-    STYLE_RETICLE: "#94a3b8",
+    STYLE_OCEAN: "on #090b0d",
+    STYLE_LAND: "#303b44",
+    STYLE_FOCUS: "#8580ad",
+    STYLE_RIM: "#41454d",
+    STYLE_STATION: "#c4cad0",
+    STYLE_PLAYING: "bold #b1a9dc",
+    STYLE_FAVORITE: "bold #c6c6cd",
+    STYLE_SELECTED: "bold #a5a0c4",
+    STYLE_RETICLE: "#777781",
 }
 
 
@@ -50,7 +50,7 @@ class GlobeWidget(Widget, can_focus=True):
 
     DEFAULT_CSS = """
     GlobeWidget {
-        background: #070d1b;
+        background: #090b0d;
     }
     """
 

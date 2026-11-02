@@ -31,7 +31,9 @@ Built with [Textual](https://textual.textualize.io/), the
 [Radio Browser](https://www.radio-browser.info/) directory, and
 [mpv](https://mpv.io/) for playback. No account, no telemetry, no browser tab.
 
-![Radio Atlas playing SomaFM Groove Salad](docs/screenshot.png)
+![Radio Atlas playing SomaFM Groove Salad (previous layout)](docs/screenshot.png)
+
+The screenshot shows the previous layout; the diagram below describes the current UI.
 
 ---
 
@@ -46,30 +48,36 @@ you can open is a shape on the map. Search and lists exist for when you already
 know what you want. The map exists for when you do not.
 
 ```text
-┌ ◉ RADIO ATLAS ────────────────────────────────── WORLD · 69 STATIONS ┐
-│ world radio, one terminal                          ○ SEED OFFLINE │
-├──────────────────────────────────────┬───────────────────────────────┤
-│                                      │ / Search stations…            │
-│                                      │ ──────────────────────────    │
-│            braille globe             │ STATION           PLACE       │
-│         rotate · tilt · zoom         │ ▸ SomaFM Groove…  San Fran…   │
-│                                      │   Radio Paradise  Paradise    │
-│           ●      ◉      ●            │   NPR News        Washington  │
-│                  ●                   │   FIP             Paris       │
-│                                      │   BBC 6 Music     London      │
-├──────────────────────────────────────┤  France Inter    Paris        │
-│ ▶ SomaFM Groove Salad · LIVE         │   BBC Radio 4     London      │
-│ ambient · downtempo · electronic     │   KEXP 90.3       Seattle     │
-│ US · San Francisco · MP3 · 128k      │   Triple J        Sydney      │
-│ VOL ▮▮▮▮▮▮▮▯▯▯ 70                    │                               │
-├──────────────────────────────────────┴───────────────────────────────┤
-│ 1 World  2 Favs  3 Recent  4 Genres  c Browse  / Find  ? Help        │
-└──────────────────────────────────────────────────────────────────────┘
+┌ RADIO ATLAS ──────────────────────── / Search stations… ── ⤨ ─ × ┐
+│ WORLD · 69 STATIONS   ○ SEED OFFLINE                             │
+├──────────────────────────────────────┬──────────────────────────┤
+│                                      │ World  Favorites  Recent │
+│                                      ├──────────────────────────┤
+│            braille globe             │ SomaFM Groove Salad    ☆ │
+│         rotate · tilt · zoom         │ US · MP3 · 128 kbps      │
+│                                      │                          │
+│           ●      ◉      ●            │ Radio Paradise         ★ │
+│                  ●                   │ US · AAC · 128 kbps      │
+│                                      │                          │
+│                                      ├──────────────────────────┤
+│                                      │ ▶ Groove Salad ● LIVE    │
+│                                      │ ambient · downtempo      │
+│                                      │ US…  VOL ▮▮▮▮▯ 70        │
+│                                      │ Offline catalog…         │
+│                                      │ ⏮  ❚❚ ⏭  ■  ♪  −  + ☆   │
+├──────────────────────────────────────┴──────────────────────────┤
+│ Radio Browser unavailable — using the bundled catalog           │
+│ 1 World  2 Favs  3 Recent  4 Genres  c Browse  / Find  ? Help     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-The left column is the map, then the now-playing panel. The right column is
-search, then whichever list the current mode needs. One list is visible at a
-time; each keeps its own cursor, and `esc` walks back up the hierarchy.
+The full-height map fills the left column in wide terminals. Search has a
+complete bordered field above the workspace; below 100 columns it gets its own
+row. The right column labels the active list and separates it from the player
+and larger, two-row transport targets. Below 72 columns, the map becomes a
+context strip so the station list can use the full width. The charcoal and
+lavender interface stays entirely in the terminal. One list is visible at a
+time; `esc` walks back up the hierarchy.
 
 Four ways in, one globe: **world** (most-clicked stations), **countries and
 cities**, **genres**, and **search**. Favorites and recent history sit on top.
@@ -218,7 +226,8 @@ radio-atlas --version
 | `/` | Search stations, or filter the active list |
 | `enter` | Open the selected country/city or play the selected station |
 | `esc` | Go back one level, or cancel search |
-| `h` `j` `k` `l` | Move through lists |
+| `j` / `k` or `↑` / `↓` | Select rows; station names remain in view |
+| `h` / `l` or `←` / `→` | Move across columns in browse lists |
 | `g` / `G` | Jump to top or bottom |
 | `ctrl+d` / `ctrl+u` | Half-page down or up |
 | `tab` | Cycle focus between the map and lists |
@@ -238,7 +247,27 @@ radio-atlas --version
 | `q` | Quit |
 
 Click a marker on the globe to play that station, or click land to open its
-country.
+country. The top bar offers search, random station, and quit buttons. On the
+right, click World, Favorites, or Recent to switch views; use the transport
+buttons — icon-only ⏮ ▶ ⏭ ■ ♪ − + (▶ becomes ❚❚ while playing); hover for the
+action name and shortcut. Click the ☆/★ at the right of any station card
+to add or remove that station without playing it, or use the large
+☆ Favorite / ★ Favorited button at the end of the transport row (☆ / ★ when
+the panel is narrow; it follows the playing station, or the
+selection when idle); `f` toggles the selected station. Favorites persist in
+`state.json` across restarts. The `70%` volume readout shows only where the
+transport row has room (wide terminals and the compact layout); the player's
+`VOL` bar is always visible.
+
+Station names ellipsize inside the visible list width; metadata and favorite
+stars stay alongside them, without horizontal station scrolling. Resizing keeps
+the selected station. The green `● LIVE` badge means playback is actually
+playing; paused playback says `Paused` instead.
+
+All keyboard shortcuts remain available, including when the map is compact.
+Control sizes use terminal cells, not independently scaled fonts. Narrow
+terminals may truncate footer hints and secondary metadata; `?` opens the
+width-bounded, scrollable shortcut list.
 
 ---
 
@@ -304,7 +333,7 @@ public `/json/url/{uuid}` counter endpoint.
 .venv/bin/python -m pytest
 ```
 
-108 tests cover the API client with mocked transports, the mpv IPC protocol
+Tests cover the API client with mocked transports, the mpv IPC protocol
 against a fake socket server, persistence recovery, globe rendering with a
 golden frame at 48 × 16, CLI behavior, and Textual pilot flows. See
 [docs/architecture.md](docs/architecture.md) for the module map, rendering

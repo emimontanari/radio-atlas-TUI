@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from rich.text import Text
+from textual import events
+from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import Static
 
@@ -13,7 +15,9 @@ from ..player import PlayerState
 def _clip(value: str, width: int) -> str:
     if width <= 0:
         return ""
-    return value if len(value) <= width else value[: max(0, width - 1)] + "…"
+    text = Text(value)
+    text.truncate(width, overflow="ellipsis")
+    return text.plain
 
 
 def _pad(left: Text, right: Text, width: int) -> Text:
@@ -26,9 +30,9 @@ def _pad(left: Text, right: Text, width: int) -> Text:
 
 
 SOURCE_LABELS = {
-    "network": ("● ONLINE", "#34d399"),
-    "cache": ("◐ CACHE OFFLINE", "#fbbf24"),
-    "seed": ("○ SEED OFFLINE", "#f59e0b"),
+    "network": ("● ONLINE", "#c6c6cd"),
+    "cache": ("◐ CACHE OFFLINE", "#a5a0c4"),
+    "seed": ("○ SEED OFFLINE", "#888892"),
 }
 
 
@@ -37,8 +41,8 @@ class AtlasHeader(Widget):
     AtlasHeader {
         height: 3;
         padding: 0 1;
-        background: #0f172a;
-        border-bottom: solid #1e293b;
+        background: #111119;
+        border-bottom: solid #292933;
     }
     """
 
@@ -60,18 +64,15 @@ class AtlasHeader(Widget):
 
     def render(self) -> Text:
         width = self.content_size.width or 80
-        brand = Text("◉ RADIO ATLAS", style="bold #38bdf8")
+        brand = Text("RADIO ATLAS", style="bold #c6c6cd")
         context = Text(
             f"{self.mode_label} · {format_count(self.count)} {self.unit}",
-            style="bold #cbd5e1",
-        )
-        subtitle = Text(
-            "world radio, one terminal", style="italic #64748b"
+            style="bold #c6c6cd",
         )
         label, color = SOURCE_LABELS.get(self.source, SOURCE_LABELS["seed"])
         badge = Text(label, style=f"bold {color}")
-        line_one = _pad(brand, context, width)
-        line_two = _pad(subtitle, badge, width)
+        line_one = brand
+        line_two = _pad(context, badge, width)
         text = Text(no_wrap=True, overflow="crop")
         text.append_text(line_one)
         text.append("\n")
@@ -79,13 +80,31 @@ class AtlasHeader(Widget):
         return text
 
 
+class Transport(Horizontal):
+    """Control row that tells the app how much room the buttons have."""
+
+    # Widths: 26 cells of icon buttons, plus the favorite button (5 short, 12 full)
+    # and a 4-cell volume readout.
+    FULL_FAVORITE = 38
+    READOUT = 35
+
+    def on_resize(self, event: events.Resize) -> None:
+        width = event.size.width
+        wide = width >= self.FULL_FAVORITE
+        changed = self.has_class("short-favorite") == wide
+        self.set_class(not wide, "short-favorite")
+        self.set_class(width < self.READOUT + (7 if wide else 0), "no-readout")
+        if changed:
+            self.call_after_refresh(self.app.refresh_favorite_views)
+
+
 class NowPlaying(Widget):
     DEFAULT_CSS = """
     NowPlaying {
         height: 8;
         padding: 0 1;
-        background: #0b1220;
-        border-top: solid #1e293b;
+        background: #111119;
+        border-top: solid #292933;
     }
     """
 
@@ -105,6 +124,7 @@ class NowPlaying(Widget):
         self.state = state
         self.selected = selected
         self.source = source
+        self.border_title = "NOW PLAYING" if state.status in ("playing", "paused") else "PLAYER"
         self.refresh()
 
     def render(self) -> Text:
@@ -113,26 +133,28 @@ class NowPlaying(Widget):
         station = state.station or self.selected
 
         if state.status == "playing":
-            glyph, tone = "▶", "#34d399"
+            glyph, tone = "▶", "#c6c6cd"
         elif state.status == "paused":
-            glyph, tone = "⏸", "#fbbf24"
+            glyph, tone = "⏸", "#a5a0c4"
         elif state.status in ("error", "unavailable"):
             glyph, tone = "⚠", "#f87171"
         else:
-            glyph, tone = "■", "#64748b"
+            glyph, tone = "■", "#777781"
 
         name = station.name if station else "Nothing playing"
         title = Text()
         title.append(f" {glyph} ", style=f"bold {tone}")
-        reserve = 12 if station and state.status in ("playing", "paused") else 4
+        reserve = 12 if station and state.status == "playing" else 4
+        if state.muted:
+            reserve += 7
         title.append(
             _clip(name, max(8, width - reserve)),
-            style=f"bold {tone}" if station else "#64748b",
+            style=f"bold {tone}" if station else "#777781",
         )
-        if station and state.status in ("playing", "paused"):
-            title.append("  ·  LIVE", style="bold #f43f5e")
+        if station and state.status == "playing":
+            title.append("  ● LIVE", style="bold #65d69a")
         if state.muted:
-            title.append("  MUTED", style="bold #fbbf24")
+            title.append("  MUTED", style="bold #a5a0c4")
 
         if state.title:
             second = Text(
@@ -140,15 +162,15 @@ class NowPlaying(Widget):
                     f"{state.artist} — {state.title}" if state.artist else state.title,
                     width,
                 ),
-                style="#e2e8f0",
+                style="#c6c6cd",
             )
         elif station is not None:
             second = Text(
                 _clip(station.tagline or station.meta or "No metadata", width),
-                style="#94a3b8",
+                style="#888892",
             )
         else:
-            second = Text("Press space on a station to tune in", style="italic #64748b")
+            second = Text("Press space on a station to tune in", style="italic #777781")
 
         if station is not None:
             compact = width < 52
@@ -167,7 +189,7 @@ class NowPlaying(Widget):
                     ),
                     max(8, width - reserve),
                 ),
-                style="#64748b",
+                style="#777781",
             )
             volume = self._volume_text(width, compact=compact)
             third = _pad(meta, volume, width)
@@ -178,13 +200,13 @@ class NowPlaying(Widget):
         if state.error:
             fourth.append(_clip(state.error, width), style="#f87171")
         elif state.status == "paused":
-            fourth.append("Paused — space resumes", style="#fbbf24")
+            fourth.append("Paused — space resumes", style="#a5a0c4")
         elif state.status == "stopped" and station is not None:
-            fourth.append("Stopped — space tunes in", style="#64748b")
+            fourth.append("Stopped — space tunes in", style="#777781")
         elif self.source == "network":
-            fourth.append("Streaming live from Radio Browser", style="#475569")
+            fourth.append("Streaming live from Radio Browser", style="#777781")
         else:
-            fourth.append("Offline catalog — browsing stays available", style="#475569")
+            fourth.append("Offline catalog — browsing stays available", style="#777781")
 
         text = Text(no_wrap=True, overflow="crop")
         for index, line in enumerate((title, second, third, fourth)):
@@ -199,9 +221,9 @@ class NowPlaying(Widget):
         filled = round(volume / (100 / slots))
         bar = "▮" * filled + "▯" * (slots - filled)
         text = Text()
-        text.append(f"VOL {bar} {volume:>3}", style="#94a3b8")
+        text.append(f"VOL {bar} {volume:>3}", style="#888892")
         if self.state.muted:
-            text.append(" ✕", style="bold #fbbf24")
+            text.append(" ✕", style="bold #a5a0c4")
         return text
 
 
@@ -210,16 +232,16 @@ class StatusBar(Static):
     StatusBar {
         height: 1;
         padding: 0 1;
-        background: #0b1220;
-        color: #94a3b8;
+        background: #111119;
+        color: #888892;
     }
     """
 
     def set_message(self, message: str, tone: str = "info") -> None:
         colors = {
-            "info": "#94a3b8",
-            "good": "#34d399",
-            "warn": "#fbbf24",
+            "info": "#888892",
+            "good": "#c6c6cd",
+            "warn": "#a5a0c4",
             "error": "#f87171",
         }
         self.update(Text(message, style=colors.get(tone, colors["info"])))
