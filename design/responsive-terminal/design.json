@@ -1,0 +1,27 @@
+{
+  "title": "Radio Atlas · Responsive terminal workspace",
+  "brief": "Correct clipped search borders, offscreen station names, resize recovery, control hit areas, and truthful LIVE status while remaining a Textual terminal application. Visual grid prototypes only; direction 01 is the chosen Textual implementation reference. Directions 02 and 03 are preserved alternatives.",
+  "artboards": [
+    {
+      "file": "01-delimited-workspace.html",
+      "title": "Delimited workspace",
+      "tradeoff": "Recommended: preserves globe-left and stations-right with explicit boundaries; narrow station names still need safe ellipsis.",
+      "width": 1320,
+      "height": 1900
+    },
+    {
+      "file": "02-stacked-compact.html",
+      "title": "Stacked compact",
+      "tradeoff": "Single vertical reading order maximizes name width; the globe becomes a shallow strip and fewer station rows fit.",
+      "width": 1320,
+      "height": 2100
+    },
+    {
+      "file": "03-station-first.html",
+      "title": "Station first",
+      "tradeoff": "List-left and full-width player clarify selection versus playback; greatest layout disruption and less map prominence.",
+      "width": 1320,
+      "height": 2000
+    }
+  ]
+}
