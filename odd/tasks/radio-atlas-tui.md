@@ -96,3 +96,17 @@ Branch: `feat/radio-atlas-tui` · Delivery: `single-pr` (new project, one branch
 - Added `docs/screenshot.png` (rsvg-convert from the Rich SVG) because PNG renders reliably through GitHub's image proxy; the SVG stays as the vector source.
 - `pytest`: 108 passed after the change.
 - `risk: none` — documentation and string metadata only; no behavior, stored data, or dependency change.
+
+### L9 — Real playback QA and cold-start fix (2026-11-02)
+
+> ok perfecto acordate hace un branch para la tarea siempre y testea con gh si es posible para implementar
+
+- Working branch: `chore/real-playback-qa` (user requires one branch per task).
+- Installed mpv 0.41.0 with Homebrew and the checkout editable with `uv pip install -e '.[dev]'`. The existing `.venv` was created by uv and has no `pip`; the README's `python -m venv` path (which does include pip) was validated separately on a fresh clone.
+- Real IPC QA with `MpvPlayer`: played `France Info` and `SomaFM Groove Salad`, received ICY metadata (`Sometimes We Hope` / `Kick Bong`), and verified pause/resume, volume 35, mute, and stop against mpv's own properties.
+- TUI smoke with the real binary (`radio-atlas --ascii --mpv <path>`) launched and quit cleanly.
+- Live Radio Browser API: world, 227 countries, by-country, search, and random all returned `source=network` with no offline fallback.
+- `gh repo clone` of `main` into a scratch directory followed the README steps: `radio-atlas 0.1.0` and 108 tests passed.
+- Defect found: the first mpv launch after install exceeded the 3s IPC connect timeout and surfaced `mpv did not open its IPC socket`. Raised `CONNECT_TIMEOUT` to 8s; the next launch connected in ~0.15s. Reproduced with a wrapper that sleeps 4s before exec'ing mpv: the old 3s timeout failed at 3.05s with the same error, and the new 8s timeout connected at 4.24s. The wrapper is not committed as a test because it would add seconds to every suite run.
+- `pytest`: 108 passed.
+- `risk: none` — timeout constant only; no contract, stored data, or dependency change.
