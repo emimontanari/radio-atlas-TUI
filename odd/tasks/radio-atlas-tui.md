@@ -20,16 +20,16 @@ Branch: `feat/radio-atlas-tui` · Delivery: `single-pr` (new project, one branch
 
 | ID | Scope | Specs | Route | Status |
 | --- | --- | --- | --- | --- |
-| T1 | Scaffold: `pyproject.toml`, package layout, config paths, models, license, asset pipeline | S1, S9 | inline | done |
-| T2 | Geo data + braille globe renderer (projection, country mask, markers, ASCII fallback) | S2 | inline | done |
-| T3 | Radio Browser client: mirror failover, normalization, cache, offline seed | S1, S4, S10 | inline | in progress |
-| T4 | Persistence store: favorites, history, settings, corrupt recovery | S6 | inline | pending |
-| T5 | mpv IPC player: subprocess, socket protocol, state/metadata, fake-player tests | S5 | inline | pending |
-| T6 | App shell: layout, header, globe widget, now playing, status bar, workers | S1, S2, S9 | inline | pending |
-| T7 | Country/city browser, station table, search, favorites/recent, random | S3, S4, S6, S8 | inline | pending |
-| T8 | Help modal, notifications, empty/error/offline/missing-mpv states, responsive layout | S7, S9, S10 | inline | pending |
-| T9 | Tests: unit, golden globe, fake mpv, Textual pilot | S1–S10 | inline | pending |
-| T10 | README, architecture notes, demo assets, final QA | S9 | inline | pending |
+| T1 | Scaffold: `pyproject.toml`, package layout, config paths, models, license, asset pipeline | S1, S9 | inline | done — `e7a846d` |
+| T2 | Geo data + braille globe renderer (projection, country mask, markers, ASCII fallback) | S2 | inline | done — `e7a846d` |
+| T3 | Radio Browser client: mirror failover, normalization, cache, offline seed, retry | S1, S4, S10 | inline | done — `e7a846d`, `9cf5a80` |
+| T4 | Persistence store: favorites, history, settings, corrupt recovery | S6 | inline | done — `e7a846d` |
+| T5 | mpv IPC player: subprocess, socket protocol, state/metadata, fake-player tests | S5 | inline | done — `e7a846d` |
+| T6 | App shell: layout, header, globe widget, now playing, status bar, workers | S1, S2, S9 | inline | done — `5daa6a2` |
+| T7 | Country/city browser, station table, search, favorites/recent, random | S3, S4, S6, S8 | inline | done — `5daa6a2` |
+| T8 | Help modal, notifications, empty/error/offline/missing-mpv states, responsive layout | S7, S9, S10 | inline | done — `5daa6a2` |
+| T9 | Tests: unit, golden globe, fake mpv, Textual pilot | S1–S10 | inline | done — `e7a846d`, `b9b9a89` |
+| T10 | README, architecture notes, demo assets, final QA | S9 | inline | done — documentation commit on this branch |
 
 ## Log
 
@@ -64,3 +64,34 @@ Branch: `feat/radio-atlas-tui` · Delivery: `single-pr` (new project, one branch
 - API client contract: `CatalogResult`/`CountriesResult` carry `source` (`network`, `cache`, `seed`), `offline`, `fetched_at`, and `error`. Network failures never raise to the UI; they degrade to stale cache, then to the bundled seed catalog.
 - Search runs name/tag/country queries in parallel, merges and ranks by relevance plus votes; if all fail it filters the seed catalog.
 - Mirrors are discovered through `all.api.radio-browser.info` reverse DNS, then a fixed fallback list, shuffled. The first healthy base is reused; failures rotate to the next mirror. A short offline cooldown prevents retry storms while the API is down.
+
+### L5 — UI and delivery completed (2026-10-30)
+
+- Implemented the Textual shell, braille globe widget, country/city/station tables, debounced search, favorites/recent views, help modal, responsive header/now-playing/status layout, and CLI flags.
+- Commits: `9cf5a80` (catalog retry + seed countries), `5daa6a2` (UI and app behavior), `b9b9a89` (model/cache/geo/globe/CLI tests).
+- The UI work unit exceeds the 400-line planning heuristic because `app.py` is one state machine that references every widget; splitting it would leave a non-runnable intermediate commit. Tests, docs, and assets accompany the behavior.
+- Visual QA: screenshots at 140×40 and 80×24, plus ASCII mode at 100×30. Fixed the DataTable horizontal scrollbar leak, themed the help scrollbar, and made the cache badge disclose offline state.
+- `risk: none` — new application code, no stored-data migration, no public contract change, no credentials, no concurrency primitives.
+
+### L6 — Verification evidence (2026-10-30)
+
+- `pytest`: 108 passed (API 18, app 8, cache 9, CLI 5, geo/globe 27, models 14, player 10, store 7, shared fakes).
+- Golden globe frame at 48×16 pins the bundled mask and braille output.
+- Radio Browser remains unavailable (`503 no available server`); failover, cache, seed, cooldown, and reset paths are covered with `httpx.MockTransport`.
+- mpv is not installed on this machine; the IPC protocol, event handling, and state transitions are covered against `tests/fake_mpv.py`. `NullPlayer` keeps the app usable and the status bar explains the requirement.
+- Screenshot and ASCII captures were generated headlessly through Textual's pilot and inspected; no screenshot or state file is written by the test suite.
+
+### L7 — Documentation (2026-10-30)
+
+- Added `README.md` (install, keys, offline behavior, configuration, privacy, development) and `docs/architecture.md` (module map, rendering pipeline, IPC, persistence, UI state machine, tradeoffs).
+- Added `docs/screenshot.svg`, rendered from the bundled seed catalog with the offline badge, so the demo does not depend on the live API.
+
+### L8 — README diagrams, repo rename, first push (2026-11-02)
+
+> pushiar lo trabajado y si queda algun detallito hacerlo y rear un readme completo en ingles y si podes iluta la app con ... dibujados en la docu para que se entienda el concepto
+
+- Rewrote `README.md` in English with drawn illustrations: a real braille globe captured headlessly, an ASCII layout schematic, a braille 2×4 dot explainer, a component/source tree, and an offline degradation ladder.
+- Corrected the repository identity to `radio-atlas-TUI` in `pyproject.toml`, `radio_atlas/__init__.py` (`USER_AGENT`), and the README clone URL.
+- Pushed the branch to the new empty remote `https://github.com/emimontanari/radio-atlas-TUI` as `main`, per the user's init snippet.
+- `pytest`: 108 passed after the change.
+- `risk: none` — documentation and string metadata only; no behavior, stored data, or dependency change.
