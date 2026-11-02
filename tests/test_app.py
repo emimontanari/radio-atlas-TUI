@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from radio_atlas.api import CatalogResult, CountriesResult
+from radio_atlas.api import CatalogResult, CountriesResult, TagsResult
 from radio_atlas.app import RadioAtlasApp
+from radio_atlas.genres import GENRES
 from radio_atlas.models import Country, Station
 from radio_atlas.player import PlayerState
 from radio_atlas.store import Store
@@ -57,6 +58,8 @@ class FakeClient:
         ]
         self.search_calls: list[str] = []
         self.search_results = [make_station("us1", "Jazz FM")]
+        self.by_tag_calls: list[str] = []
+        self.random_tags: list[str | None] = []
         self.closed = False
 
     def seed_world(self, limit: int = 500):
@@ -74,6 +77,15 @@ class FakeClient:
     async def countries(self):
         return CountriesResult(list(self.countries), "seed", offline=True)
 
+    async def tags(self):
+        return TagsResult([("jazz", 3), ("rock", 2)], "seed", offline=True)
+
+    async def by_tag(self, tag: str, limit: int = 300):
+        self.by_tag_calls.append(tag)
+        return CatalogResult(
+            [s for s in self.stations if tag in s.tags], "seed", offline=True
+        )
+
     async def by_country(self, code: str, limit: int = 300):
         return CatalogResult(
             [s for s in self.stations if s.country_code == code], "seed", offline=True
@@ -83,7 +95,10 @@ class FakeClient:
         self.search_calls.append(query)
         return CatalogResult(list(self.search_results), "seed", offline=True)
 
-    async def random_station(self, *, excluded_ids=(), limit: int = 120):
+    async def random_station(
+        self, *, excluded_ids=(), limit: int = 120, tag: str | None = None
+    ):
+        self.random_tags.append(tag)
         return self.stations[0]
 
     async def register_click(self, station_id: str) -> None:
@@ -301,3 +316,47 @@ async def test_narrow_terminal_still_renders(tmp_path):
         assert app.globe._frame is not None
         assert app.globe._frame.width > 0
         assert app.stations_table.row_count == 3
+
+
+async def test_genres_view_opens_a_genre_and_random_respects_it(tmp_path):
+    app = make_app(tmp_path)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.press("4")
+        await pilot.pause(0.1)
+        assert app.mode == "genres"
+        assert app.genres_table.row_count == len(GENRES)
+
+        first = GENRES[0]
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+        assert app.mode == "stations"
+        assert app.current_genre is not None
+        assert app.current_genre.tag == first.tag
+        assert app.client.by_tag_calls[-1] == first.tag
+
+        await pilot.press("r")
+        await pilot.pause(0.1)
+        assert app.client.random_tags[-1] == first.tag
+
+        await pilot.press("escape")
+        await pilot.pause(0.1)
+        assert app.mode == "genres"
+
+
+async def test_genre_search_filters_the_list(tmp_path):
+    app = make_app(tmp_path)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.press("4")
+        await pilot.pause(0.1)
+
+        await pilot.press("slash")
+        for key in "jazz":
+            await pilot.press(key)
+        await pilot.pause(0.1)
+        assert app.genres_table.row_count == 1
+        assert app.genres_table.genres[0][0].tag == "jazz"
+
+        await pilot.press("escape")
+        await pilot.pause(0.1)
+        assert app.mode == "genres"
+        assert app.genres_table.row_count == len(GENRES)

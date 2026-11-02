@@ -360,3 +360,81 @@ def test_seed_countries_are_derived_from_the_bundled_catalog(tmp_path):
     assert countries["FR"].name == "France"
     assert countries["US"].latitude is not None
 
+
+async def test_tags_returns_network_counts(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/json/tags"
+        assert request.url.params.get("order") == "stationcount"
+        return httpx.Response(
+            200,
+            json=[
+                {"name": "jazz", "stationcount": 1280},
+                {"name": "pop", "stationcount": 6200},
+            ],
+        )
+
+    client = make_client(tmp_path, handler)
+    result = await client.tags()
+    await client.close()
+
+    assert result.source == "network"
+    assert result.offline is False
+    assert dict(result.tags)["jazz"] == 1280
+
+
+async def test_tags_falls_back_to_seed_counts(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="no available server")
+
+    client = make_client(tmp_path, handler)
+    result = await client.tags()
+    await client.close()
+
+    assert result.source == "seed"
+    assert result.offline is True
+    assert dict(result.tags).get("jazz", 0) >= 1
+
+
+async def test_by_tag_requests_taglist_and_normalizes(tmp_path):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["tagList"] = request.url.params.get("tagList", "")
+        return httpx.Response(200, json=[record("j1", "Jazz FM", tags="jazz,smooth")])
+
+    client = make_client(tmp_path, handler)
+    result = await client.by_tag("jazz")
+    await client.close()
+
+    assert seen["tagList"] == "jazz"
+    assert result.source == "network"
+    assert [station.name for station in result.stations] == ["Jazz FM"]
+
+
+async def test_by_tag_falls_back_to_seed(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="no available server")
+
+    client = make_client(tmp_path, handler)
+    result = await client.by_tag("jazz")
+    await client.close()
+
+    assert result.source == "seed"
+    assert result.stations
+    assert all("jazz" in station.tags.casefold() for station in result.stations)
+
+
+async def test_random_station_filters_by_tag(tmp_path):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["tagList"] = request.url.params.get("tagList", "")
+        return httpx.Response(200, json=[record("j1", "Jazz FM")])
+
+    client = make_client(tmp_path, handler)
+    station = await client.random_station(tag="jazz")
+    await client.close()
+
+    assert station is not None
+    assert seen["tagList"] == "jazz"
+

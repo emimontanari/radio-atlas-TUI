@@ -7,6 +7,7 @@ import json
 import random
 import socket
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -15,7 +16,7 @@ import httpx
 from . import USER_AGENT
 from .cache import DiskCache
 from .config import api_base_override, asset_path, cache_dir
-from .models import Country, Station, normalize_stations
+from .models import Country, Station, clean_text, normalize_stations, split_tags
 
 RADIO_BROWSER_HOST = "all.api.radio-browser.info"
 FALLBACK_MIRRORS = (
@@ -32,6 +33,7 @@ OFFLINE_COOLDOWN = 60.0
 WORLD_LIMIT = 500
 COUNTRY_LIMIT = 300
 SEARCH_LIMIT = 120
+TAG_LIMIT = 2000
 SEARCH_FIELDS = ("name", "tag", "country")
 
 
@@ -67,6 +69,21 @@ class CountriesResult:
 
     def __len__(self) -> int:
         return len(self.countries)
+
+
+@dataclass(slots=True)
+class TagsResult:
+    tags: list[tuple[str, int]] = field(default_factory=list)
+    source: str = "network"
+    fetched_at: float = field(default_factory=time.time)
+    offline: bool = False
+    error: str = ""
+
+    def __bool__(self) -> bool:
+        return bool(self.tags)
+
+    def __len__(self) -> int:
+        return len(self.tags)
 
 
 def discover_mirrors() -> list[str]:
@@ -199,6 +216,35 @@ class RadioBrowserClient:
             return None
         countries = self._parse_countries(entry.data)
         return countries or None
+
+    @staticmethod
+    def _parse_tags(raw: Iterable[Any]) -> list[tuple[str, int]]:
+        tags: list[tuple[str, int]] = []
+        for item in raw:
+            if not isinstance(item, Mapping):
+                continue
+            name = clean_text(item.get("name"), 80)
+            if not name:
+                continue
+            try:
+                count = int(item.get("stationcount", 0))
+            except (TypeError, ValueError, OverflowError):
+                count = 0
+            tags.append((name, max(0, count)))
+        return tags
+
+    def _cached_tags(self, key: str) -> list[tuple[str, int]] | None:
+        entry = self.cache.load(key)
+        if entry is None or not isinstance(entry.data, list):
+            return None
+        tags = self._parse_tags(entry.data)
+        return tags or None
+
+    def _seed_tags(self) -> list[tuple[str, int]]:
+        counts: Counter[str] = Counter()
+        for station in self.seed_stations():
+            counts.update(split_tags(station.tags))
+        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
 
     # -- mirrors -----------------------------------------------------------
 
@@ -367,6 +413,71 @@ class RadioBrowserClient:
             self._seed_countries(), "seed", offline=True, error=network_error
         )
 
+    async def tags(self, limit: int = TAG_LIMIT) -> TagsResult:
+        key = self.cache_key("tags")
+        if not self.offline:
+            try:
+                payload = await self._fetch_json(
+                    "/json/tags",
+                    {"order": "stationcount", "reverse": "true", "limit": limit},
+                )
+                raw = payload if isinstance(payload, list) else []
+                tags = self._parse_tags(raw)
+                if tags:
+                    self.cache.save(key, raw)
+                    return TagsResult(tags, "network")
+            except ApiError as error:
+                network_error = str(error)
+            else:
+                network_error = "empty response"
+        else:
+            network_error = "offline cooldown active"
+
+        cached = self._cached_tags(key)
+        if cached:
+            return TagsResult(cached, "cache", offline=True, error=network_error)
+        return TagsResult(self._seed_tags(), "seed", offline=True, error=network_error)
+
+    async def by_tag(self, tag: str, limit: int = COUNTRY_LIMIT) -> CatalogResult:
+        tag = clean_text(tag, 80).casefold()
+        if not tag:
+            return CatalogResult([], "seed", offline=self.offline)
+        key = self.cache_key("genre", tag)
+        if not self.offline:
+            try:
+                payload = await self._fetch_json(
+                    "/json/stations/search",
+                    {
+                        "tagList": tag,
+                        "hidebroken": "true",
+                        "order": "votes",
+                        "reverse": "true",
+                        "limit": limit,
+                    },
+                )
+                records = self._as_records(payload)
+                stations = normalize_stations(records, limit=limit)
+                if stations:
+                    self.cache.save(key, records[: limit * 2])
+                    return CatalogResult(stations, "network")
+            except ApiError as error:
+                network_error = str(error)
+            else:
+                network_error = "empty response"
+        else:
+            network_error = "offline cooldown active"
+
+        cached = self._cached_stations(key)
+        if cached:
+            return CatalogResult(cached[:limit], "cache", offline=True, error=network_error)
+        seeded = [
+            station
+            for station in self.seed_stations()
+            if tag in split_tags(station.tags)
+        ]
+        seeded.sort(key=lambda s: (s.votes, s.clicks), reverse=True)
+        return CatalogResult(seeded[:limit], "seed", offline=True, error=network_error)
+
     async def search(self, query: str, limit: int = SEARCH_LIMIT) -> CatalogResult:
         query = query.strip()
         if not query:
@@ -427,28 +538,37 @@ class RadioBrowserClient:
         )
 
     async def random_station(
-        self, *, excluded_ids: Iterable[str] = (), limit: int = SEARCH_LIMIT
+        self,
+        *,
+        excluded_ids: Iterable[str] = (),
+        limit: int = SEARCH_LIMIT,
+        tag: str | None = None,
     ) -> Station | None:
         excluded = set(excluded_ids)
+        tag = clean_text(tag, 80).casefold() if tag else ""
         if not self.offline:
+            params = {"hidebroken": "true", "order": "random", "limit": limit}
+            if tag:
+                params["tagList"] = tag
             try:
-                payload = await self._fetch_json(
-                    "/json/stations/search",
-                    {
-                        "hidebroken": "true",
-                        "order": "random",
-                        "limit": limit,
-                    },
-                )
+                payload = await self._fetch_json("/json/stations/search", params)
                 stations = normalize_stations(self._as_records(payload), limit=limit)
                 candidates = [s for s in stations if s.id not in excluded]
                 if candidates:
                     return random.choice(candidates)
             except ApiError:
                 pass
-        pool = [s for s in self.seed_stations() if s.id not in excluded]
-        if not pool:
-            pool = self.seed_stations()
+        if tag:
+            tagged = [
+                station
+                for station in self.seed_stations()
+                if tag in split_tags(station.tags)
+            ]
+            pool = [s for s in tagged if s.id not in excluded] or tagged
+        else:
+            pool = [s for s in self.seed_stations() if s.id not in excluded]
+            if not pool:
+                pool = self.seed_stations()
         return random.choice(pool) if pool else None
 
     async def register_click(self, station_id: str) -> None:

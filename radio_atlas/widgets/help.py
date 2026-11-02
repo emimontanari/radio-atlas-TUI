@@ -13,7 +13,7 @@ SECTIONS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Browse",
         (
-            ("1 / 2 / 3", "World, favorites, recent"),
+            ("1 / 2 / 3 / 4", "World, favorites, recent, genres"),
             ("c", "Countries and cities"),
             ("enter", "Open or play the selected row"),
             ("esc", "Go back one level"),
@@ -31,7 +31,7 @@ SECTIONS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("n / p", "Next or previous station"),
             ("[ / ]", "Volume down or up"),
             ("m", "Mute"),
-            ("r", "Tune a random station"),
+            ("r", "Random station, or within the active genre"),
         ),
     ),
     (

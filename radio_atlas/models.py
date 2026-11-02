@@ -53,6 +53,13 @@ def _valid_url(value: Any) -> str:
     return url if _HTTP_URL.match(url) else ""
 
 
+def split_tags(tags: Any) -> list[str]:
+    """Split a comma or semicolon separated tag string into unique tokens."""
+    text = clean_text(tags, 600)
+    tokens = (clean_text(token, 80).casefold() for token in re.split(r"[,;]", text))
+    return [token for token in dict.fromkeys(tokens) if token]
+
+
 def _stable_id(name: str, url: str) -> str:
     digest = hashlib.sha1(f"{name}\0{url}".encode("utf-8")).hexdigest()
     return f"local-{digest[:20]}"
