@@ -17,7 +17,7 @@ from .models import Station, parse_track
 
 MEDIA_TITLE_ID = 1
 METADATA_ID = 2
-CONNECT_TIMEOUT = 3.0
+CONNECT_TIMEOUT = 8.0  # first launch after install can be slow on macOS
 COMMAND_TIMEOUT = 2.0
 
 
