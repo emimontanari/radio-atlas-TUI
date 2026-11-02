@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 from typing import Iterable
 
-from textual import on
+from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import DataTable, Footer, Input
+from textual.widgets import Button, DataTable, Footer, Input, Static
 
 from .api import CatalogResult, CountriesResult, RadioBrowserClient, TagsResult
 from .config import state_path
@@ -29,6 +29,7 @@ from .widgets import (
     NowPlaying,
     StationsTable,
     StatusBar,
+    Transport,
 )
 from .widgets.tables import ALL_CITIES_KEY, EMPTY_KEY, UNKNOWN_CITY_KEY
 
@@ -133,25 +134,75 @@ class RadioAtlasApp(App):
     # -- layout ------------------------------------------------------------
 
     def compose(self) -> ComposeResult:
-        yield AtlasHeader(id="header")
+        with Horizontal(id="top-bar"):
+            yield AtlasHeader(id="header")
+            with Container(id="search-box"):
+                yield Button("/ Search stations…", id="search-trigger")
+                yield Input(placeholder="Search stations…", id="search-input")
+            yield Button("⤨", id="control-random", tooltip="Random station · r")
+            yield Button("×", id="control-quit", tooltip="Quit · q")
         with Horizontal(id="main"):
+            yield Static("WORLD MAP · widen terminal to view", id="map-context")
             with Vertical(id="left-panel"):
                 yield GlobeWidget(self.renderer, id="globe")
-                yield NowPlaying(id="now-playing")
             with Vertical(id="side-panel"):
-                yield Input(
-                    placeholder="Search stations…",
-                    id="search-input",
-                )
+                with Horizontal(id="navigation"):
+                    yield Button("World", id="nav-world")
+                    yield Button("Favorites", id="nav-favorites")
+                    yield Button("Recent", id="nav-recent")
+                yield Static("STATIONS", id="list-heading")
                 with Container(id="tables"):
                     yield GenresTable(id="genres-table")
                     yield CountriesTable(id="countries-table")
                     yield CitiesTable(id="cities-table")
                     yield StationsTable(id="stations-table")
+                yield NowPlaying(id="now-playing")
+                with Transport(id="transport"):
+                    yield Button("⏮", id="control-previous", tooltip="Previous · p")
+                    yield Button("▶", id="control-play", tooltip="Play · space")
+                    yield Button("⏭", id="control-next", tooltip="Next · n")
+                    yield Button("■", id="control-stop", tooltip="Stop · s")
+                    yield Button("♪", id="control-mute", tooltip="Mute · m")
+                    yield Button("−", id="control-down", tooltip="Volume down · [")
+                    yield Static("70%", id="volume-label")
+                    yield Button("+", id="control-up", tooltip="Volume up · ]")
+                    yield Button("☆ Favorite", id="player-favorite", tooltip="Favorite · f")
         yield StatusBar("Starting Radio Atlas…", id="status-bar")
         yield Footer(show_command_palette=False, compact=True)
 
+    @on(Button.Pressed)
+    def _button_pressed(self, event: Button.Pressed) -> None:
+        actions = {
+            "search-trigger": self.action_search,
+            "nav-world": self.action_show_world,
+            "nav-favorites": self.action_show_favorites,
+            "nav-recent": self.action_show_recent,
+            "control-previous": self.action_previous_station,
+            "control-play": self.action_play_pause,
+            "control-next": self.action_next_station,
+            "control-stop": self.action_stop,
+            "control-mute": self.action_mute,
+            "control-down": self.action_volume_down,
+            "control-up": self.action_volume_up,
+            "player-favorite": self._toggle_player_favorite,
+            "control-random": self.action_random,
+            "control-quit": self.action_quit,
+        }
+        action = actions.get(event.button.id or "")
+        if action is not None:
+            action()
+            event.stop()
+
+    def on_resize(self, event: events.Resize) -> None:
+        self.set_class(event.size.width < 100, "narrow")
+        self.set_class(event.size.width < 72, "compact")
+
     def on_mount(self) -> None:
+        self.set_class(self.size.width < 100, "narrow")
+        self.set_class(self.size.width < 72, "compact")
+        # Icons are packed edge to edge; CSS rejects line-pad 0, Python allows it.
+        for button in self.query("#transport Button"):
+            button.styles.line_pad = 0
         self.search_input.display = False
         self._ui_ready = True
         self.catalog = self.client.seed_world()
@@ -279,7 +330,7 @@ class RadioAtlasApp(App):
         self, stations: Iterable[Station], *, focus: bool = False
     ) -> None:
         self.domain_stations = list(stations)
-        self.stations_table.set_stations(self.domain_stations)
+        self.stations_table.set_stations(self.domain_stations, self.store.favorite_ids)
         self.selected_station = self.stations_table.selected_station()
         self._show_only("stations")
         if focus:
@@ -379,6 +430,9 @@ class RadioAtlasApp(App):
         self.header.update_header(
             mode_label=label, count=count, source=self.source, unit=unit
         )
+        self.query_one("#list-heading", Static).update(f"{label} · {count} {unit}")
+        for mode in ("world", "favorites", "recent"):
+            self.query_one(f"#nav-{mode}", Button).set_class(self.mode == mode, "active")
 
     def _globe_stations(self) -> list[Station]:
         if self.mode in ("world", "countries", "genres"):
@@ -422,12 +476,28 @@ class RadioAtlasApp(App):
     def _refresh_player_views(self) -> None:
         if not self._ui_ready:
             return
-        self.now_playing.update_view(
-            self.player.state,
-            selected=self._current_station(),
-            source=self.source,
-        )
+        state = self.player.state
+        selected = self._current_station()
+        target = state.station or selected
+        self.now_playing.update_view(state, selected=selected, source=self.source)
+        favorite = target is not None and target.id in self.store.favorite_ids
+        short = self.query_one("#transport").has_class("short-favorite")
+        button = self.query_one("#player-favorite", Button)
+        glyph = "★" if favorite else "☆"
+        button.label = glyph if short else f"{glyph} {'Favorited' if favorite else 'Favorite'}"
+        button.disabled = target is None
+        button.set_class(favorite, "active")
+        play = self.query_one("#control-play", Button)
+        play.label = "❚❚" if state.status == "playing" else "▶"
+        play.tooltip = "Pause · space" if state.status == "playing" else "Play · space"
+        self.query_one("#control-mute", Button).set_class(state.muted, "active")
+        self.query_one("#volume-label", Static).update(f"{state.volume}%")
+        self.stations_table.update_favorites(self.store.favorite_ids)
         self._sync_globe()
+
+    def refresh_favorite_views(self) -> None:
+        # Public hook for Transport: its width decides the favorite label.
+        self._refresh_player_views()
 
     def _current_station(self) -> Station | None:
         if self.mode in ("world", "favorites", "recent", "search", "stations"):
@@ -459,6 +529,7 @@ class RadioAtlasApp(App):
         self._suppress_input = False
         self.search_input.placeholder = self._search_placeholder()
         self.search_input.display = True
+        self.query_one("#search-trigger").display = False
         self.search_input.focus()
         self._set_status("Type to search · enter opens the first result · esc cancels")
 
@@ -577,6 +648,7 @@ class RadioAtlasApp(App):
             self.search_input.value = ""
             self._suppress_input = False
             self.search_input.display = False
+            self.query_one("#search-trigger").display = True
         if self._search_timer is not None:
             self._search_timer.stop()
             self._search_timer = None
@@ -1044,6 +1116,22 @@ class RadioAtlasApp(App):
         if station is None:
             self._set_status("Select a station to favorite", "warn")
             return
+        self._toggle_favorite(station)
+
+    def _toggle_player_favorite(self) -> None:
+        station = self.player.state.station or self._current_station()
+        if station is None:
+            self._set_status("Select a station to favorite", "warn")
+            return
+        self._toggle_favorite(station)
+
+    @on(StationsTable.FavoriteClicked)
+    def _star_clicked(self, event: StationsTable.FavoriteClicked) -> None:
+        station = self.stations_table.station_for_key(event.station_id)
+        if station is not None:
+            self._toggle_favorite(station)
+
+    def _toggle_favorite(self, station: Station) -> None:
         added = self.store.toggle_favorite(station)
         self._sync_globe()
         if self.mode == "favorites":

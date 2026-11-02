@@ -86,6 +86,32 @@ The IPC socket lives in a private `mkdtemp` directory under the system temp dire
 
 ## UI state machine
 
+The terminal layout places a full-height globe on the left and navigation,
+the active table, now-playing metadata, and transport buttons on the right.
+Search lives in the top bar alongside random and quit controls. Buttons call
+the existing `action_*` methods; keyboard bindings remain available. Station
+cards use UUID row keys and show favorite indicators from `Store.favorite_ids`.
+
+Search moves to a full-width bordered row below 100 columns. Below 72 columns,
+a map-context strip replaces the globe, leaving a full-width station workspace.
+Transport controls are icon-only, three rows tall; tooltips carry the action and
+shortcut (`Pause · space` while playing, `Play · space` otherwise). The row ends
+with a filled `☆ Favorite` / `★ Favorited` button for the playing station (or
+the selection when idle). `Transport` measures its own width: below 38 cells the
+button shortens to `☆`/`★`, and below 35/42 cells (short/full button) the `70%`
+readout hides.
+The player has a separate labeled boundary and shows green `● LIVE` only for
+`playing`, not `paused` or rejected playback.
+
+`StationsTable` uses fixed viewport-bounded station/favorite columns, reserving
+cell padding and a scrollbar cell. On width changes it rebuilds the presentation
+through DataTable APIs and restores selection by UUID; it does not refetch data
+or modify favorites/history. The favorite column is a 4-cell click target:
+`StationsTable.FavoriteClicked` carries that row's station id to
+`RadioAtlasApp._toggle_favorite`, the helper shared by the `f` key, the row star
+and the player button. Names ellipsize, metadata remains on a second line,
+and horizontal keys/gestures cannot scroll the station names out of view.
+
 Modes are `world`, `favorites`, `recent`, `search`, `countries`, `cities`, and `stations`. Only one DataTable is visible at a time; each keeps its own cursor state. `esc` unwinds the browsing hierarchy, and search remembers the view that opened it.
 
 Global key bindings forward `j/k/h/l/g/G/ctrl+d/ctrl+u` to the active table because DataTable does not bind them. While the search input is visible and focused, app shortcuts are ignored so typed characters reach the query.
@@ -98,7 +124,7 @@ Network lookups run in exclusive Textual workers. Search debounces for 350 ms an
 - `tests/test_player.py`: IPC command/response, event ordering, state transitions, and stream errors against a fake mpv socket server.
 - `tests/test_store.py`: roundtrip, atomic writes, corrupt-state quarantine, history bounds.
 - `tests/test_geo_globe.py`: bundled assets, projection roundtrips, hit testing, marker priority, ASCII mode, and a golden frame.
-- `tests/test_app.py`: Textual pilot flows with injected client and player fakes.
+- `tests/test_app.py`: Textual pilot flows with injected client and player fakes; compositor readback at 120×40, 100×32, 80×24, and 60×24, long-name horizontal/resize recovery, search borders, empty selections, control hit areas, and truthful LIVE states.
 - `tests/test_cli.py`: argument parsing, version output, and missing-asset handling.
 
 ## Known tradeoffs

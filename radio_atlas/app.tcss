@@ -1,6 +1,70 @@
 Screen {
-    background: #0b1020;
-    color: #cbd5e1;
+    background: #111119;
+    color: #c6c6cd;
+}
+
+#top-bar {
+    height: 4;
+    background: #111119;
+    border-bottom: solid #292933;
+}
+
+#header {
+    width: 2fr;
+    height: 2;
+    padding: 0 1;
+    background: #111119;
+    border: none;
+}
+
+#search-box {
+    width: 1fr;
+    min-width: 24;
+    height: 3;
+}
+
+#search-input, #search-trigger {
+    width: 1fr;
+    height: 3;
+    margin: 0;
+    padding: 0 1;
+    border: solid #555560;
+    background: #191921;
+    color: #c6c6cd;
+    content-align: left middle;
+    text-align: left;
+}
+
+#search-input:focus, #search-trigger:focus {
+    border: solid #a5a0c4;
+}
+
+Button {
+    min-width: 3;
+    height: 2;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #bfc0c8;
+    text-style: none;
+    content-align: center middle;
+}
+
+Button:hover, Button:focus {
+    background: #262630;
+    color: #e1e1e7;
+    text-style: none;
+}
+
+Button.active {
+    color: #b1a9dc;
+    background: #22222c;
+}
+
+#control-random, #control-quit {
+    width: 4;
+    height: 2;
+    content-align: center middle;
 }
 
 #main {
@@ -8,95 +72,231 @@ Screen {
 }
 
 #left-panel {
-    width: 3fr;
-    min-width: 42;
+    width: 2fr;
+    min-width: 24;
     height: 1fr;
+    background: #090b0d;
 }
 
 #globe {
     height: 1fr;
-    min-height: 12;
-}
-
-#now-playing {
-    height: 8;
+    min-height: 8;
 }
 
 #side-panel {
-    width: 2fr;
-    min-width: 36;
+    width: 1fr;
+    min-width: 32;
     height: 1fr;
-    border-left: solid #1e293b;
-    background: #0b1220;
+    border-left: solid #292933;
+    background: #111119;
 }
 
-#search-input {
+#navigation {
     height: 3;
-    margin: 1 1 0 1;
-    border: round #38bdf8;
-    background: #0f172a;
-    color: #e2e8f0;
+    padding: 0;
+    border-bottom: solid #292933;
 }
 
-#search-input:focus {
-    border: round #fbbf24;
+#navigation Button {
+    width: auto;
+    padding: 0;
+}
+
+#list-heading {
+    height: 1;
+    padding: 0 1;
+    color: #aaaab5;
+    text-overflow: ellipsis;
+    text-wrap: nowrap;
+}
+
+#map-context {
+    display: none;
 }
 
 #tables {
     height: 1fr;
-    padding: 1 1 0 1;
 }
 
 DataTable {
     height: 1fr;
-    background: transparent;
-    color: #cbd5e1;
-    scrollbar-color: #334155;
-    scrollbar-background: #0b1220;
+    background: #111119;
+    color: #c6c6cd;
+    scrollbar-color: #41414d;
+    scrollbar-background: #111119;
+    scrollbar-size-vertical: 1;
     scrollbar-size-horizontal: 0;
 }
 
 DataTable > .datatable--header {
-    background: #0f172a;
-    color: #94a3b8;
-    text-style: bold;
+    background: #191921;
+    color: #888892;
+    text-style: none;
 }
 
 DataTable > .datatable--cursor {
-    background: #1e3a5f;
-    color: #f8fafc;
-    text-style: bold;
+    background: #33333d;
+    color: #e1e1e7;
+    text-style: none;
 }
 
 DataTable > .datatable--hover {
-    background: #16233d;
+    background: #22222c;
 }
 
-DataTable > .datatable--even-row {
-    background: #0b1220;
+DataTable > .datatable--even-row, DataTable > .datatable--odd-row {
+    background: #111119;
 }
 
-DataTable > .datatable--odd-row {
-    background: #0d1526;
+#now-playing {
+    height: 6;
+    padding: 0 1;
+    background: #111119;
+    border-top: solid #555560;
+    border-title-color: #aaaab5;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+#transport {
+    height: 4;
+    align: left middle;
+    border-top: solid #555560;
+}
+
+/* Icon-only controls: 26 cells in total so the row fits the 31-cell side panel. */
+#transport Button {
+    width: 4;
+    height: 3;
+    padding: 0;
+    content-align: center middle;
+    text-align: center;
+}
+
+#transport #control-down, #transport #control-up {
+    width: 3;
+    background: #191921;
+}
+
+#transport Button:hover, #transport Button:focus {
+    background: #33333d;
+    color: #ffffff;
+}
+
+#transport Button:focus {
+    text-style: bold;
+}
+
+#transport Button.-active {
+    background: #41414d;
+}
+
+#control-play {
+    color: #e1e1e7;
+}
+
+/* The favorite button is the largest, filled target in the row. */
+#transport #player-favorite {
+    width: 12;
+    height: 3;
+    margin-left: 1;
+    padding: 0;
+    background: #2b2940;
+    color: #e1e1e7;
+    text-wrap: nowrap;
+}
+
+#transport #player-favorite:hover, #transport #player-favorite:focus {
+    background: #3d3a5c;
+    color: #ffffff;
+}
+
+#transport #player-favorite.active {
+    background: #b1a9dc;
+    color: #111119;
+    text-style: bold;
+}
+
+#transport #player-favorite:disabled {
+    color: #555560;
+    background: #191921;
+}
+
+#transport.short-favorite #player-favorite {
+    width: 5;
+    margin-left: 0;
+}
+
+#volume-label {
+    width: 1fr;
+    height: 3;
+    content-align: right middle;
+    color: #888892;
 }
 
 #status-bar {
     height: 1;
-    background: #0f172a;
-    border-top: solid #1e293b;
+    background: #090b0d;
+    color: #777781;
+    border: none;
 }
 
 Footer {
     height: 1;
-    background: #0f172a;
-    color: #94a3b8;
+    background: #111119;
+    color: #777781;
 }
 
 Footer > .footer--key {
-    background: #1e293b;
-    color: #7dd3fc;
+    background: #22222c;
+    color: #a5a0c4;
 }
 
 Footer > .footer--description {
-    color: #94a3b8;
+    color: #888892;
+}
+
+/* Search gets its own complete row before the header becomes crowded. */
+.narrow #top-bar {
+    height: 6;
+}
+
+.narrow #search-box {
+    dock: bottom;
+    width: 1fr;
+}
+
+.narrow #header {
+    width: 1fr;
+}
+
+#transport.no-readout #volume-label {
+    display: none;
+}
+
+/* Keep the station workspace usable below the split-pane minimum. */
+.compact #main {
+    layout: vertical;
+}
+
+.compact #map-context {
+    display: block;
+    height: 1;
+    padding: 0 1;
+    color: #aaaab5;
+    background: #090b0d;
+}
+
+.compact #left-panel {
+    display: none;
+}
+
+.compact #side-panel {
+    width: 1fr;
+    min-width: 0;
+    border-left: none;
+}
+
+.compact #now-playing {
+    height: 5;
 }
