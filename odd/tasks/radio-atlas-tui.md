@@ -93,5 +93,6 @@ Branch: `feat/radio-atlas-tui` · Delivery: `single-pr` (new project, one branch
 - Rewrote `README.md` in English with drawn illustrations: a real braille globe captured headlessly, an ASCII layout schematic, a braille 2×4 dot explainer, a component/source tree, and an offline degradation ladder.
 - Corrected the repository identity to `radio-atlas-TUI` in `pyproject.toml`, `radio_atlas/__init__.py` (`USER_AGENT`), and the README clone URL.
 - Pushed the branch to the new empty remote `https://github.com/emimontanari/radio-atlas-TUI` as `main`, per the user's init snippet.
+- Added `docs/screenshot.png` (rsvg-convert from the Rich SVG) because PNG renders reliably through GitHub's image proxy; the SVG stays as the vector source.
 - `pytest`: 108 passed after the change.
 - `risk: none` — documentation and string metadata only; no behavior, stored data, or dependency change.

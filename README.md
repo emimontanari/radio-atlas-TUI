@@ -31,7 +31,7 @@ Built with [Textual](https://textual.textualize.io/), the
 [Radio Browser](https://www.radio-browser.info/) directory, and
 [mpv](https://mpv.io/) for playback. No account, no telemetry, no browser tab.
 
-![Radio Atlas playing SomaFM Groove Salad](docs/screenshot.svg)
+![Radio Atlas playing SomaFM Groove Salad](docs/screenshot.png)
 
 ---
 
