@@ -5,6 +5,7 @@ from __future__ import annotations
 from rich.text import Text
 from textual.widgets import DataTable
 
+from ..genres import Genre
 from ..models import Country, Station, format_count
 
 EMPTY_KEY = "__empty__"
@@ -128,6 +129,71 @@ class CountriesTable(DataTable):
 
     def first_country(self) -> Country | None:
         return self.countries[0] if self.countries else None
+
+
+class GenresTable(DataTable):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.genres: list[tuple[Genre, int]] = []
+        self._by_tag: dict[str, Genre] = {}
+
+    def on_mount(self) -> None:
+        self.cursor_type = "row"
+        self.zebra_stripes = True
+        self.add_columns("GENRE", "STATIONS")
+
+    def set_genres(
+        self, genres: list[tuple[Genre, int]], filter_text: str = ""
+    ) -> None:
+        query = filter_text.strip().casefold()
+        if query:
+            visible = [
+                (genre, count)
+                for genre, count in genres
+                if query in genre.name.casefold() or query in genre.tag
+            ]
+        else:
+            visible = list(genres)
+        self.clear()
+        self.genres = visible
+        self._by_tag = {genre.tag: genre for genre, _ in visible}
+        if not visible:
+            self.add_row(
+                _cell("No genres match", 28, style="italic #64748b"),
+                _cell("", 8),
+                key=EMPTY_KEY,
+            )
+            return
+        for genre, count in visible:
+            self.add_row(
+                _cell(genre.name, 28, style="bold #e2e8f0"),
+                _cell(
+                    format_count(count),
+                    8,
+                    style="#38bdf8",
+                    justify="right",
+                ),
+                key=genre.tag,
+            )
+        if self.row_count:
+            self.move_cursor(row=0, animate=False)
+
+    def genre_for_key(self, key: str) -> Genre | None:
+        return self._by_tag.get(key)
+
+    def first_genre(self) -> Genre | None:
+        return self.genres[0][0] if self.genres else None
+
+    def selected_genre(self) -> Genre | None:
+        if not self.genres:
+            return None
+        try:
+            row = self.cursor_row
+        except Exception:
+            return self.genres[0][0]
+        if 0 <= row < len(self.genres):
+            return self.genres[row][0]
+        return None
 
 
 class CitiesTable(DataTable):

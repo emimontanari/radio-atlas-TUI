@@ -15,6 +15,7 @@ Branch: `feat/radio-atlas-tui` · Delivery: `single-pr` (new project, one branch
 - **S8** — Replicate the reference project's core discovery features: world/favorites/recent views, **random tuning** that avoids recent stations, and automatic globe focus on the playing station.
 - **S9** — Be **"ligera, rápida, visualmente atractiva y open source"**: minimal dependencies, responsive interactions, rounded-panel design, MIT license.
 - **S10** — Degrade gracefully when Radio Browser is unreachable: cached catalog plus a bundled seed catalog, clearly marked offline; and when mpv is missing, keep browsing usable with install guidance. (Assumption: required by "rápida" and the reference project's cache behavior.)
+- **S11** — Browse by genre: a Genres view (`4`) with ~30 curated genres mapped to Radio Browser tags, station counts, Enter to list stations, `/` to filter genres, and random tuning that respects the active genre. Offline degrades to counts and stations from the seed catalog.
 
 ## Tasks
 
@@ -30,6 +31,9 @@ Branch: `feat/radio-atlas-tui` · Delivery: `single-pr` (new project, one branch
 | T8 | Help modal, notifications, empty/error/offline/missing-mpv states, responsive layout | S7, S9, S10 | inline | done — `5daa6a2` |
 | T9 | Tests: unit, golden globe, fake mpv, Textual pilot | S1–S10 | inline | done — `e7a846d`, `b9b9a89` |
 | T10 | README, architecture notes, demo assets, final QA | S9 | inline | done — documentation commit on this branch |
+| T11 | API: `tags()` with counts + `by_tag()` station lookup, cache and seed fallback | S11 | inline | done — 115 tests, live API QA |
+| T12 | UI: `GenresTable`, `4` view, genre stations, search filter, back navigation, genre-aware random | S11 | inline | done — pty smoke, header `GENRE ·` |
+| T13 | Tests, help/README updates, real API and TUI QA | S11 | inline | done — `pytest`: 115 passed |
 
 ## Log
 
@@ -110,3 +114,12 @@ Branch: `feat/radio-atlas-tui` · Delivery: `single-pr` (new project, one branch
 - Defect found: the first mpv launch after install exceeded the 3s IPC connect timeout and surfaced `mpv did not open its IPC socket`. Raised `CONNECT_TIMEOUT` to 8s; the next launch connected in ~0.15s. Reproduced with a wrapper that sleeps 4s before exec'ing mpv: the old 3s timeout failed at 3.05s with the same error, and the new 8s timeout connected at 4.24s. The wrapper is not committed as a test because it would add seconds to every suite run.
 - `pytest`: 108 passed.
 - `risk: none` — timeout constant only; no contract, stored data, or dependency change.
+
+### L10 — Genre browsing (2026-11-02)
+
+> Está muy bueno, me gusta. Ahora lo que me gustaría es que mediante un GrillMe y ODD hagamos. Les agreguemos un poco más de funcionalidades. Sin. para escalar un poquito el producto. Porque me gusta. Pero estaría bueno que se pueda buscar por géneros. Que no sé.
+
+- Grill decisions: dedicated Genres view (`4`) instead of search-only; curated ~30 genres mapped to Radio Browser tags; first slice includes counts, Enter to list stations, and genre-aware random (`r`).
+- Route: inline. T11 API, T12 UI, T13 tests/docs/QA. The Globe keeps showing the genre's station markers; genre browsing does not change stored data.
+- `risk: none` — additive UI and API surface; no stored-data, security, or public contract change.
+- Evidence: `pytest` 115 passed (5 new API tests, 2 new pilot tests). Live API: 2000 tags cached, all 32 curated genres have counts, `by_tag("jazz")` returned 300 stations, tagged random returned a jazz station. TUI pty smoke: `4` → Enter → `r` → `q` exited 0 with `GENRES` and `GENRE ·` headers. README and help updated.

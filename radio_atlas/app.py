@@ -11,17 +11,19 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Input
 
-from .api import CatalogResult, CountriesResult, RadioBrowserClient
+from .api import CatalogResult, CountriesResult, RadioBrowserClient, TagsResult
 from .config import state_path
+from .genres import GENRE_BY_TAG, GENRES, Genre
 from .geo import GeoIndex, load_geo_index
 from .globe import MAX_ZOOM, MIN_ZOOM, GlobeRenderer, wrap_longitude
-from .models import Country, Station, format_count
+from .models import Country, Station, format_count, split_tags
 from .player import PlayerState, create_player
 from .store import Store
 from .widgets import (
     AtlasHeader,
     CitiesTable,
     CountriesTable,
+    GenresTable,
     GlobeWidget,
     HelpScreen,
     NowPlaying,
@@ -36,6 +38,7 @@ MODE_LABELS = {
     "recent": "RECENT",
     "search": "SEARCH",
     "countries": "COUNTRIES",
+    "genres": "GENRES",
 }
 
 
@@ -48,6 +51,7 @@ class RadioAtlasApp(App):
         Binding("1", "show_world", "World", show=True),
         Binding("2", "show_favorites", "Favs", show=True),
         Binding("3", "show_recent", "Recent", show=True),
+        Binding("4", "show_genres", "Genres", show=True),
         Binding("c", "show_countries", "Browse", show=True),
         Binding("slash", "search", "Find", show=True),
         Binding("space", "play_pause", "Play", show=True),
@@ -112,6 +116,9 @@ class RadioAtlasApp(App):
         self.country_stations: list[Station] = []
         self.current_country: Country | None = None
         self.current_city = ""
+        self.genres: list[tuple[Genre, int]] = []
+        self.genre_stations: list[Station] = []
+        self.current_genre: Genre | None = None
         self.domain_stations: list[Station] = []
         self.selected_station: Station | None = None
         self.source = "seed"
@@ -137,6 +144,7 @@ class RadioAtlasApp(App):
                     id="search-input",
                 )
                 with Container(id="tables"):
+                    yield GenresTable(id="genres-table")
                     yield CountriesTable(id="countries-table")
                     yield CitiesTable(id="cities-table")
                     yield StationsTable(id="stations-table")
@@ -148,6 +156,7 @@ class RadioAtlasApp(App):
         self._ui_ready = True
         self.catalog = self.client.seed_world()
         self.countries = self.client.seed_countries()
+        self.genres = self._genre_counts_from(self.catalog)
         self.catalog_source = "seed"
         self.source = "seed"
         self._populate_stations(self.catalog, focus=True)
@@ -199,10 +208,16 @@ class RadioAtlasApp(App):
         return self.query_one(CountriesTable)
 
     @property
+    def genres_table(self) -> GenresTable:
+        return self.query_one(GenresTable)
+
+    @property
     def cities_table(self) -> CitiesTable:
         return self.query_one(CitiesTable)
 
     def _active_table(self) -> DataTable:
+        if self.mode == "genres":
+            return self.genres_table
         if self.mode == "countries":
             return self.countries_table
         if self.mode == "cities":
@@ -278,6 +293,21 @@ class RadioAtlasApp(App):
             self.countries_table.focus()
         self._sync_all()
 
+    @staticmethod
+    def _genre_counts_from(stations: Iterable[Station]) -> list[tuple[Genre, int]]:
+        counts: dict[str, int] = {}
+        for station in stations:
+            for tag in split_tags(station.tags):
+                counts[tag] = counts.get(tag, 0) + 1
+        return [(genre, counts.get(genre.tag, 0)) for genre in GENRES]
+
+    def _populate_genres(self, filter_text: str = "", *, focus: bool = False) -> None:
+        self.genres_table.set_genres(self.genres, filter_text)
+        self._show_only("genres")
+        if focus:
+            self.genres_table.focus()
+        self._sync_all()
+
     def _populate_cities(self, filter_text: str = "", *, focus: bool = False) -> None:
         counts: dict[str, int] = {}
         for station in self.country_stations:
@@ -297,6 +327,7 @@ class RadioAtlasApp(App):
 
     def _show_only(self, wanted: str) -> None:
         for name, table in (
+            ("genres", self.genres_table),
             ("countries", self.countries_table),
             ("cities", self.cities_table),
             ("stations", self.stations_table),
@@ -312,7 +343,11 @@ class RadioAtlasApp(App):
 
     def _sync_header(self) -> None:
         unit = "STATIONS"
-        if self.mode == "countries":
+        if self.mode == "genres":
+            label = "GENRES"
+            count = len(self.genres_table.genres)
+            unit = "GENRE" if count == 1 else "GENRES"
+        elif self.mode == "countries":
             label = "COUNTRIES"
             count = len(self.countries_table.countries)
             unit = "COUNTRY" if count == 1 else "COUNTRIES"
@@ -324,10 +359,19 @@ class RadioAtlasApp(App):
             )
             count = len(self.country_stations)
         elif self.mode == "stations":
-            country = (
-                self.current_country.name.upper() if self.current_country else "STATIONS"
-            )
-            label = f"{country} · {self.current_city.upper()}" if self.current_city else country
+            if self.current_genre is not None:
+                label = f"GENRE · {self.current_genre.name.upper()}"
+            else:
+                country = (
+                    self.current_country.name.upper()
+                    if self.current_country
+                    else "STATIONS"
+                )
+                label = (
+                    f"{country} · {self.current_city.upper()}"
+                    if self.current_city
+                    else country
+                )
             count = len(self.domain_stations)
         else:
             label = MODE_LABELS.get(self.mode, self.mode.upper())
@@ -337,14 +381,20 @@ class RadioAtlasApp(App):
         )
 
     def _globe_stations(self) -> list[Station]:
-        if self.mode in ("world", "countries"):
+        if self.mode in ("world", "countries", "genres"):
             stations = list(self.catalog)
         elif self.mode == "favorites":
             stations = list(self.store.favorites)
         elif self.mode == "recent":
             stations = [entry.station for entry in self.store.history]
-        elif self.mode in ("cities", "stations"):
+        elif self.mode == "cities":
             stations = list(self.country_stations)
+        elif self.mode == "stations":
+            stations = (
+                list(self.domain_stations)
+                if self.current_genre is not None
+                else list(self.country_stations)
+            )
         else:
             stations = list(self.domain_stations)
         playing = self.player.state.station
@@ -413,6 +463,8 @@ class RadioAtlasApp(App):
         self._set_status("Type to search · enter opens the first result · esc cancels")
 
     def _search_placeholder(self) -> str:
+        if self._search_return_mode == "genres":
+            return "Filter genres…"
         if self._search_return_mode == "countries":
             return "Filter countries…"
         if self._search_return_mode == "cities":
@@ -424,6 +476,10 @@ class RadioAtlasApp(App):
         if self._suppress_input or not self.search_input.display:
             return
         value = event.value.strip()
+        if self._search_return_mode == "genres":
+            self._populate_genres(value)
+            self._set_status(f"{len(self.genres_table.genres)} genres", "info")
+            return
         if self._search_return_mode == "countries":
             self._populate_countries(value)
             self._set_status(f"{len(self.countries_table.countries)} countries", "info")
@@ -479,6 +535,17 @@ class RadioAtlasApp(App):
     @on(Input.Submitted, "#search-input")
     def _search_submitted(self) -> None:
         mode = self._search_return_mode
+        if mode == "genres":
+            genre = self.genres_table.first_genre()
+            self._hide_search()
+            if genre is not None:
+                self.run_worker(
+                    self._open_genre(genre.tag),
+                    group="genre",
+                    exclusive=True,
+                    exit_on_error=False,
+                )
+            return
         if mode == "countries":
             country = self.countries_table.first_country()
             self._hide_search()
@@ -520,7 +587,10 @@ class RadioAtlasApp(App):
 
     def _restore_view(self) -> None:
         mode = self._search_return_mode
-        if mode == "countries":
+        if mode == "genres":
+            self.mode = "genres"
+            self._populate_genres(focus=True)
+        elif mode == "countries":
             self.mode = "countries"
             self._populate_countries(focus=True)
         elif mode == "cities":
@@ -551,6 +621,7 @@ class RadioAtlasApp(App):
         self.mode = "world"
         self.current_country = None
         self.current_city = ""
+        self.current_genre = None
         self.source = self.catalog_source
         self._populate_stations(self.catalog, focus=True)
 
@@ -560,6 +631,7 @@ class RadioAtlasApp(App):
         self._hide_search()
         self.mode = "favorites"
         self.current_country = None
+        self.current_genre = None
         self._populate_stations(self.store.favorites, focus=True)
         if not self.store.favorites:
             self._set_status("No favorites yet — press f on a station", "info")
@@ -570,10 +642,97 @@ class RadioAtlasApp(App):
         self._hide_search()
         self.mode = "recent"
         self.current_country = None
+        self.current_genre = None
         stations = [entry.station for entry in self.store.history]
         self._populate_stations(stations, focus=True)
         if not stations:
             self._set_status("No listening history yet", "info")
+
+    def action_show_genres(self) -> None:
+        if self._typing():
+            return
+        self._hide_search()
+        self.mode = "genres"
+        self.current_genre = None
+        self.current_country = None
+        self.current_city = ""
+        self._populate_genres(focus=True)
+        self.run_worker(
+            self._refresh_genres(),
+            group="genres",
+            exclusive=True,
+            exit_on_error=False,
+        )
+
+    async def _refresh_genres(self) -> None:
+        result = await self.client.tags()
+        if not self._ui_ready:
+            return
+        counts = {tag.casefold(): count for tag, count in result.tags}
+        self.genres = [
+            (genre, counts.get(genre.tag.casefold(), 0)) for genre in GENRES
+        ]
+        if result.source == "network":
+            self.source = "network"
+            self.offline = False
+        if self.mode == "genres":
+            filter_text = (
+                self.search_input.value if self.search_input.display else ""
+            )
+            self._populate_genres(filter_text, focus=False)
+        self._sync_header()
+        if result.offline:
+            self._set_status(
+                "Genre counts are offline — using the local catalog", "warn"
+            )
+
+    async def _open_genre(self, tag: str) -> None:
+        genre = GENRE_BY_TAG.get(tag.strip().casefold())
+        if genre is None:
+            return
+        self.current_genre = genre
+        self.current_country = None
+        self.current_city = ""
+        self.mode = "stations"
+        self._hide_search()
+        self.genre_stations = self._stations_for_genre(genre.tag)
+        self._populate_stations(self.genre_stations, focus=True)
+        self._set_status(f"Loading {genre.name}…", "info")
+        result = await self.client.by_tag(genre.tag)
+        if self.current_genre is None or self.current_genre.tag != genre.tag:
+            return
+        if result.stations:
+            self.genre_stations = result.stations
+        if result.source == "network":
+            self.source = "network"
+            self.offline = False
+        if self.mode == "stations":
+            self._populate_stations(self.genre_stations, focus=False)
+        self._sync_header()
+        if result.stations:
+            self._set_status(
+                f"{genre.name} · {format_count(len(result.stations))} stations",
+                "good" if result.source == "network" else "warn",
+            )
+        else:
+            self._set_status(
+                f"No stations found for {genre.name}"
+                + (" (offline catalog)" if result.offline else ""),
+                "warn",
+            )
+
+    def _stations_for_genre(self, tag: str) -> list[Station]:
+        stations: dict[str, Station] = {
+            station.id: station
+            for station in self.catalog
+            if tag in split_tags(station.tags)
+        }
+        for station in self.client.seed_stations():
+            if tag in split_tags(station.tags):
+                stations.setdefault(station.id, station)
+        return sorted(
+            stations.values(), key=lambda s: (s.votes, s.clicks), reverse=True
+        )
 
     def action_show_countries(self) -> None:
         if self._typing():
@@ -581,6 +740,7 @@ class RadioAtlasApp(App):
         self._hide_search()
         self.mode = "countries"
         self.current_country = None
+        self.current_genre = None
         self._populate_countries(focus=True)
         self.run_worker(
             self._refresh_countries(),
@@ -616,6 +776,7 @@ class RadioAtlasApp(App):
             return
         self.current_country = country
         self.current_city = ""
+        self.current_genre = None
         self.mode = "cities"
         self._hide_search()
         self.country_stations = self._stations_for_country(code)
@@ -684,7 +845,16 @@ class RadioAtlasApp(App):
         if not isinstance(key, str) or key == EMPTY_KEY:
             return
         table = event.data_table
-        if table.id == "countries-table":
+        if table.id == "genres-table":
+            genre = self.genres_table.genre_for_key(key)
+            if genre is not None:
+                self.run_worker(
+                    self._open_genre(genre.tag),
+                    group="genre",
+                    exclusive=True,
+                    exit_on_error=False,
+                )
+        elif table.id == "countries-table":
             self.run_worker(
                 self._open_country(key),
                 group="country",
@@ -780,11 +950,18 @@ class RadioAtlasApp(App):
             self._set_status("Stopped", "info")
 
     async def _random_station(self) -> None:
+        genre = self.current_genre
+        if genre is None and self.mode == "genres":
+            genre = self.genres_table.selected_genre()
+        tag = genre.tag if genre is not None else None
         station = await self.client.random_station(
-            excluded_ids=self.store.recent_ids(20)
+            excluded_ids=self.store.recent_ids(20), tag=tag
         )
         if station is None:
-            self._set_status("No station available for random tuning", "warn")
+            label = f" for {genre.name}" if genre is not None else ""
+            self._set_status(
+                f"No station available{label} for random tuning", "warn"
+            )
             return
         if all(item.id != station.id for item in self.catalog):
             self.catalog.insert(0, station)
@@ -1000,7 +1177,22 @@ class RadioAtlasApp(App):
         self.run_worker(
             self._refresh_world(), group="catalog", exclusive=True, exit_on_error=False
         )
-        if self.mode == "countries":
+        if self.mode == "genres":
+            self.run_worker(
+                self._refresh_genres(),
+                group="genres",
+                exclusive=True,
+                exit_on_error=False,
+            )
+        elif self.current_genre is not None and self.mode == "stations":
+            tag = self.current_genre.tag
+            self.run_worker(
+                self._open_genre(tag),
+                group="genre",
+                exclusive=True,
+                exit_on_error=False,
+            )
+        elif self.mode == "countries":
             self.run_worker(
                 self._refresh_countries(),
                 group="countries",
@@ -1021,11 +1213,16 @@ class RadioAtlasApp(App):
             self._hide_search(restore=True)
             return
         if self.mode == "stations":
-            self.mode = "cities"
-            self._populate_cities(focus=True)
+            if self.current_genre is not None:
+                self.mode = "genres"
+                self.current_genre = None
+                self._populate_genres(focus=True)
+            else:
+                self.mode = "cities"
+                self._populate_cities(focus=True)
         elif self.mode == "cities":
             self.mode = "countries"
             self.current_country = None
             self._populate_countries(focus=True)
-        elif self.mode in ("countries", "favorites", "recent", "search"):
+        elif self.mode in ("genres", "countries", "favorites", "recent", "search"):
             self.action_show_world()

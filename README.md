@@ -63,13 +63,16 @@ know what you want. The map exists for when you do not.
 │ US · San Francisco · MP3 · 128k      │   Triple J        Sydney      │
 │ VOL ▮▮▮▮▮▮▮▯▯▯ 70                    │                               │
 ├──────────────────────────────────────┴───────────────────────────────┤
-│ 1 World  2 Favs  3 Recent  c Browse  / Find  space Play  ? Help      │
+│ 1 World  2 Favs  3 Recent  4 Genres  c Browse  / Find  ? Help        │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 The left column is the map, then the now-playing panel. The right column is
 search, then whichever list the current mode needs. One list is visible at a
 time; each keeps its own cursor, and `esc` walks back up the hierarchy.
+
+Four ways in, one globe: **world** (most-clicked stations), **countries and
+cities**, **genres**, and **search**. Favorites and recent history sit on top.
 
 ---
 
@@ -140,6 +143,13 @@ station UUID, and rank by name prefix, name substring, tag/country match, then
 votes and clicks. Typing debounces for 350 ms and each request is tagged with a
 generation number, so a slow response cannot overwrite newer results.
 
+**Genres.** `radio_atlas/genres.py` curates 32 genres and maps each one to a
+real Radio Browser tag (`Jazz` → `jazz`, `Hip-Hop` → `hip-hop`). The Genres
+view (`4`) fetches `/json/tags` once for station counts and caches it, `/`
+filters the list, `enter` loads that tag through `tagList`, and `r` tunes a
+random station inside the genre. Without a network the same view falls back to
+counts and stations derived from the seed catalog.
+
 **Playback.** `MpvPlayer` launches mpv with `--no-video --idle=yes
 --input-ipc-server=<socket>` and multiplexes newline-delimited JSON requests
 and `property-change` events over one connection. The socket lives in a private
@@ -203,6 +213,7 @@ radio-atlas --version
 | Key | Action |
 | --- | --- |
 | `1` / `2` / `3` | World, favorites, recent |
+| `4` | Browse genres |
 | `c` | Browse countries and cities |
 | `/` | Search stations, or filter the active list |
 | `enter` | Open the selected country/city or play the selected station |
@@ -216,7 +227,7 @@ radio-atlas --version
 | `n` / `p` | Next or previous station |
 | `[` / `]` | Volume down or up |
 | `m` | Mute |
-| `r` | Tune a random station, avoiding recent history |
+| `r` | Tune a random station, avoiding recent history — within the active genre when there is one |
 | `f` | Add or remove a favorite |
 | `H` / `L` | Rotate the globe west or east |
 | `J` / `K` | Tilt the globe south or north |
@@ -246,7 +257,9 @@ country.
 When every mirror fails, Radio Atlas serves the last successful response from
 its disk cache, then the bundled seed catalog, marks the header, and pauses
 network attempts for 60 seconds to avoid retry storms. Press `R` to retry
-immediately. Search, browsing, favorites, and history stay available offline.
+immediately. Search, genres, browsing, favorites, and history stay available
+offline: genre counts come from the seed tags and genre stations from the seed
+catalog.
 
 Cached responses are served without a TTL: directory data is stable enough that
 stale results beat an empty terminal, and the header never hides the source.
