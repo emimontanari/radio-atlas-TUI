@@ -21,17 +21,18 @@ from ..globe import (
     GlobeRenderer,
 )
 from ..models import Country, Station
+from .panels import ACCENT, FAVORITE_COLOR
 
 STYLE_COLORS = {
-    STYLE_OCEAN: "on #090b0d",
-    STYLE_LAND: "#303b44",
-    STYLE_FOCUS: "#8580ad",
-    STYLE_RIM: "#41454d",
-    STYLE_STATION: "#c4cad0",
-    STYLE_PLAYING: "bold #b1a9dc",
-    STYLE_FAVORITE: "bold #c6c6cd",
-    STYLE_SELECTED: "bold #a5a0c4",
-    STYLE_RETICLE: "#777781",
+    STYLE_OCEAN: "on #090b12",
+    STYLE_LAND: "#6b7692",
+    STYLE_FOCUS: "#d98fd8",
+    STYLE_RIM: "#4a4f66",
+    STYLE_STATION: "#ffffff",
+    STYLE_PLAYING: f"bold {ACCENT}",
+    STYLE_FAVORITE: f"bold {FAVORITE_COLOR}",
+    STYLE_SELECTED: "bold #cdbdf7",
+    STYLE_RETICLE: "#9a9aa8",
 }
 
 
@@ -50,7 +51,7 @@ class GlobeWidget(Widget, can_focus=True):
 
     DEFAULT_CSS = """
     GlobeWidget {
-        background: #090b0d;
+        background: #090b12;
     }
     """
 

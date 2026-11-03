@@ -1,0 +1,13 @@
+{
+  "title": "Radio Atlas reference terminal UI",
+  "brief": "Full Radio Atlas Textual TUI matching the supplied reference screenshot: header with search underline, dotted globe, two-line station rows with corner stars, now playing, grouped VOL bar transport and key-chip footer, with responsive previews at 120x40, 100x32, 80x24 and 60x24. Terminal glyphs only.",
+  "artboards": [
+    {
+      "file": "01-reference-tui.html",
+      "title": "Reference terminal UI",
+      "tradeoff": "Tracks the reference terminal grid with Font Awesome/Nerd Font icons. The player is a compact 6-row block: NOW PLAYING with the state right-aligned, a bold station name with its outline/filled-yellow star beside it, and muted metadata; one control row holds Previous, Play/Pause (violet, 5×1), Next and Stop on the left and a speaker + VOL bar (max 24 segments) + percentage group on the right. The artboard uses inline SVG only as a browser preview; Textual emits Nerd Font private-use glyphs, which require a user-selected Nerd Font. Terminal glyph size remains font-owned.",
+      "width": 1100,
+      "height": 2600
+    }
+  ]
+}

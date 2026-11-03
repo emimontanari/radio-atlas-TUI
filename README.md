@@ -31,9 +31,27 @@ Built with [Textual](https://textual.textualize.io/), the
 [Radio Browser](https://www.radio-browser.info/) directory, and
 [mpv](https://mpv.io/) for playback. No account, no telemetry, no browser tab.
 
+## Quick start
+
+| You need | Why |
+| --- | --- |
+| Python 3.11+ on macOS or Linux | runs the app |
+| `mpv` | playback; browsing works without it |
+| A **Nerd Font** selected in your terminal | every UI icon is a Font Awesome glyph from the Nerd Fonts private-use range; without one they render as empty boxes (tofu). `--ascii` swaps icons for ASCII instead |
+
+```bash
+uv tool install .    # or: pipx install .
+radio-atlas
+```
+
+Radio Atlas never installs fonts or edits terminal settings. Pick a Nerd Font
+in your terminal's own font settings. Full steps are in [Install](#install).
+
 ![Radio Atlas playing SomaFM Groove Salad (previous layout)](docs/screenshot.png)
 
-The screenshot shows the previous layout; the diagram below describes the current UI.
+> `docs/screenshot.png` shows the **previous** layout and is kept only for
+> reference. The diagram below describes the current UI; the design reference
+> lives in [`design/atlas-reference/`](design/atlas-reference/).
 
 ---
 
@@ -48,36 +66,38 @@ you can open is a shape on the map. Search and lists exist for when you already
 know what you want. The map exists for when you do not.
 
 ```text
-┌ RADIO ATLAS ──────────────────────── / Search stations… ── ⤨ ─ × ┐
-│ WORLD · 69 STATIONS   ○ SEED OFFLINE                             │
-├──────────────────────────────────────┬──────────────────────────┤
-│                                      │ World  Favorites  Recent │
-│                                      ├──────────────────────────┤
-│            braille globe             │ SomaFM Groove Salad    ☆ │
-│         rotate · tilt · zoom         │ US · MP3 · 128 kbps      │
-│                                      │                          │
-│           ●      ◉      ●            │ Radio Paradise         ★ │
-│                  ●                   │ US · AAC · 128 kbps      │
-│                                      │                          │
-│                                      ├──────────────────────────┤
-│                                      │ ▶ Groove Salad ● LIVE    │
-│                                      │ ambient · downtempo      │
-│                                      │ US…  VOL ▮▮▮▮▯ 70        │
-│                                      │ Offline catalog…         │
-│                                      │ ⏮  ❚❚ ⏭  ■  ♪  −  + ☆   │
-├──────────────────────────────────────┴──────────────────────────┤
-│ Radio Browser unavailable — using the bundled catalog           │
-│ 1 World  2 Favs  3 Recent  4 Genres  c Browse  / Find  ? Help     │
-└─────────────────────────────────────────────────────────────────┘
+ [signal] │ RADIO ATLAS │ SEARCH · 92 STATIONS         [signal] ONLINE │ [search] lofi█
+──────────────────────────────────────────────────────────────────────────────────────
+                                    │ World │ Favorites │ Recent
+                                    │ 92 STATIONS
+         braille globe              │ ▶ Lofi 24/7                           [star ●]
+      rotate · tilt · zoom          │   US · MP3 · 128 kbps
+                                    │   lofi girl                           [star ○]
+        ●      ◉      ●             │   US · MP3
+              ●                     ├────────────────────────────────────────────────
+                                    │  NOW PLAYING                      [signal] LIVE
+                                    │  Lofi 24/7 [star ●]
+                                    │  franceinfo-midfi.mp3 · MP3 · 128 kbps
+                                    │
+                                    │  [prev] [pause] [next] [stop]   [spk] VOL ▮▮▮▮▮▮▮▮ 85%
+───────────────────────────────── ✓ Added Lofi 24/7 to favorites ─────────────────────
+  1 World  2 Favs  3 Recent  4 Genres  c Browse  / Find  space Play/Pause  r Random ...
 ```
 
-The full-height map fills the left column in wide terminals. Search has a
-complete bordered field above the workspace; below 100 columns it gets its own
-row. The right column labels the active list and separates it from the player
-and larger, two-row transport targets. Below 72 columns, the map becomes a
-context strip so the station list can use the full width. The charcoal and
-lavender interface stays entirely in the terminal. One list is visible at a
-time; `esc` walks back up the hierarchy.
+`[name]` marks a Nerd Font icon (Font Awesome glyph). `[star ●]` is the filled
+yellow star (`#f5c542`, favorite) and `[star ○]` the muted outline star.
+
+| Area | What you see |
+| --- | --- |
+| Header (1 row) | signal icon, `RADIO ATLAS`, `MODE · N STATIONS`, source badge (green `ONLINE`, amber `CACHE OFFLINE`, grey `SEED OFFLINE`), underlined search field with a search icon |
+| Globe (left) | braille map; fills the left half in wide terminals |
+| Tabs and count | `World │ Favorites │ Recent` (active tab underlined), then a muted station count |
+| Station rows | two lines each (name, then `CC · codec · kbps`); `▶` marks the playing or paused station, the cursor row is tinted lavender, the star column on the right is clickable |
+| Player (6 rows) | rule; `NOW PLAYING` on the left with the state on the right; bold station name with its star right after it; muted `title · CODEC · NNN kbps`; one blank row; controls |
+| Controls row | left: Previous, Play/Pause (lavender pill), Next, Stop. Right: speaker, `VOL` bar, percentage |
+| Footer (2 rows) | rule that doubles as the toast line, then clickable key chips |
+
+One list is visible at a time; `esc` walks back up the hierarchy.
 
 Four ways in, one globe: **world** (most-clicked stations), **countries and
 cities**, **genres**, and **search**. Favorites and recent history sit on top.
@@ -120,9 +140,13 @@ cell:
  ●  station        +  map centre     ▓  focused country
 ```
 
+These are map markers drawn into the braille canvas. They are separate from the
+Nerd Font star icons used by the station list and the player.
+
 Press `H`/`L` to rotate, `J`/`K` to tilt, `+`/`-` to zoom, `0` to reset. On a
-terminal without braille support, `--ascii` swaps the braille rasterizer for
-`#` and plain glyphs.
+terminal without braille support, `--ascii` swaps the globe rasterizer for
+`#` and plain glyphs; it also uses explicit ASCII aliases for action/favorite
+icons (`<`, `>`, `[*]`, `[ ]`).
 
 ---
 
@@ -163,13 +187,14 @@ counts and stations derived from the seed catalog.
 and `property-change` events over one connection. The socket lives in a private
 `mkdtemp` directory because macOS limits unix socket paths to about 104 bytes.
 When mpv is missing, `NullPlayer` keeps every other feature usable and the
-status bar explains what to install.
+notice explains what to install.
 
 ---
 
 ## Install
 
-Requirements: **Python 3.11+** on macOS or Linux, and **mpv** for playback.
+Requirements: **Python 3.11+** on macOS or Linux, **mpv** for playback, and a
+**Nerd Font** selected in your terminal for the UI icons.
 
 ```bash
 # macOS
@@ -205,13 +230,20 @@ python -m venv .venv
 
 Browsing works without mpv; playback does not.
 
+**Nerd Font.** Install any [Nerd Font](https://www.nerdfonts.com/) with your
+system's usual method, then select it in your terminal's font settings (for
+example iTerm2 → Profiles → Text, or the font option in Alacritty, kitty,
+WezTerm or GNOME Terminal). Radio Atlas does not install fonts or change
+terminal configuration. Without one the icons show as tofu boxes; run
+`radio-atlas --ascii` to use ASCII icons and an ASCII globe instead.
+
 ---
 
 ## Usage
 
 ```bash
 radio-atlas                 # braille globe
-radio-atlas --ascii         # ASCII fallback for terminals without braille
+radio-atlas --ascii         # ASCII globe and ASCII icons (no Nerd Font needed)
 radio-atlas --mpv /opt/mpv  # explicit mpv binary
 radio-atlas --version
 ```
@@ -246,28 +278,93 @@ radio-atlas --version
 | `?` | Toggle help |
 | `q` | Quit |
 
-Click a marker on the globe to play that station, or click land to open its
-country. The top bar offers search, random station, and quit buttons. On the
-right, click World, Favorites, or Recent to switch views; use the transport
-buttons — icon-only ⏮ ▶ ⏭ ■ ♪ − + (▶ becomes ❚❚ while playing); hover for the
-action name and shortcut. Click the ☆/★ at the right of any station card
-to add or remove that station without playing it, or use the large
-☆ Favorite / ★ Favorited button at the end of the transport row (☆ / ★ when
-the panel is narrow; it follows the playing station, or the
-selection when idle); `f` toggles the selected station. Favorites persist in
-`state.json` across restarts. The `70%` volume readout shows only where the
-transport row has room (wide terminals and the compact layout); the player's
-`VOL` bar is always visible.
+### Mouse and on-screen controls
 
-Station names ellipsize inside the visible list width; metadata and favorite
-stars stay alongside them, without horizontal station scrolling. Resizing keeps
-the selected station. The green `● LIVE` badge means playback is actually
-playing; paused playback says `Paused` instead.
+| Control | Behavior |
+| --- | --- |
+| Globe marker / land | play that station / open that country |
+| Search icon or field | start a search (same as `/`) |
+| Tabs | switch World, Favorites, Recent |
+| Row star (right edge) | toggle that station's favorite; does not play it or move the cursor |
+| Player star (right after the name) | toggle the favorite of the playing station, or the selection when idle |
+| Previous, Play/Pause, Next, Stop | same as `p`, `space`, `n`, `s`; hover for name and shortcut |
+| Speaker icon | mute or unmute (same as `m`); shows the muted icon while muted |
+| `VOL` bar segment | set the volume to that segment (saved like `[` / `]`) |
+| Footer key chip | run that binding |
 
-All keyboard shortcuts remain available, including when the map is compact.
-Control sizes use terminal cells, not independently scaled fonts. Narrow
-terminals may truncate footer hints and secondary metadata; `?` opens the
-width-bounded, scrollable shortcut list.
+### Favorites
+
+- Toggle with the row star, the player star or `f`; all three share one code
+  path and stay in sync, including the globe markers and the Favorites tab.
+- A favorite is a filled yellow star (`#f5c542`); a non-favorite is a muted
+  outline. With `--ascii` they are `[*]` and `[ ]`.
+- Favorites persist in `state.json` across restarts.
+
+### Player states
+
+| State | Header line (right side) |
+| --- | --- |
+| Playing | green signal icon + `LIVE`, shown only while playback is really playing |
+| Paused | `PAUSED` |
+| Stopped / idle | `STOPPED` |
+| Error or mpv unavailable | the error text in red, ellipsized; the same message also appears as a toast |
+
+The metadata line shows the stream's title (`artist — title` when known), or
+`country · state` when there is none, followed by codec and bitrate. Long text
+is ellipsized.
+
+### Volume
+
+The speaker icon, the `VOL` bar and the percentage form one group on the right
+of the controls row. The bar holds at most 24 segments and the percentage
+follows it after one space. Keyboard (`[`, `]`, `m`) and mouse use the same
+path, and the level and mute state persist.
+
+### Toasts
+
+The old status bar is gone. Messages appear on the footer's rule line:
+
+| Tone | Examples | Stays for |
+| --- | --- | --- |
+| info | Paused, Removed from favorites, genre and country counts | 3 s |
+| good | Playing, Added to favorites | 3 s |
+| warn | Nothing playing yet, offline country list | 8 s |
+| error | stream failures, mpv missing | 12 s |
+
+Connectivity is always shown by the header badge, and player errors also stay
+in the player's state slot, so nothing depends on a toast being on screen.
+
+### Responsive behavior
+
+| Terminal width | Change |
+| --- | --- |
+| below 100 columns | search gets its own full-width row; the right panel widens to 2/3 |
+| below 72 columns | the globe becomes a one-line map strip; the station list uses the full width |
+| narrower panels | the volume bar shrinks first (down to 6 segments), never the percentage or the buttons; a gap of at least 2 columns separates the transport and volume groups |
+| panel content below 41 columns | the volume group wraps to its own row (the player becomes 7 rows) |
+| footer too short | key chips are dropped lowest-priority first |
+
+Station and metadata text is ellipsized, there is no horizontal scrolling, and
+resizing keeps the selected station. Every shortcut keeps working in every
+layout; `?` opens a scrollable help list that fits the terminal.
+
+### Icons
+
+Icons are Font Awesome 4.7 glyphs in the Nerd Fonts private-use range, defined
+once in `radio_atlas/widgets/panels.py`:
+
+| Icon | Codepoint | Icon | Codepoint |
+| --- | --- | --- | --- |
+| `nf-fa-step_backward` | U+F048 | `nf-fa-star` (filled) | U+F005 |
+| `nf-fa-play` | U+F04B | `nf-fa-star_o` (outline) | U+F006 |
+| `nf-fa-pause` | U+F04C | `nf-fa-volume_up` | U+F028 |
+| `nf-fa-step_forward` | U+F051 | `nf-fa-volume_off` | U+F026 |
+| `nf-fa-stop` | U+F04D | `nf-fa-search` / `nf-fa-signal` | U+F002 / U+F012 |
+
+The terminal draws glyphs at its font's cell size; the app cannot scale them,
+so it enlarges click targets (3 to 5 columns) instead. Codepoints follow the
+Font Awesome 4.7 mapping bundled with Nerd Fonts and were not checked against a
+local font file.
 
 ---
 
@@ -293,7 +390,7 @@ catalog.
 Cached responses are served without a TTL: directory data is stable enough that
 stale results beat an empty terminal, and the header never hides the source.
 
-The same degradation covers missing mpv: the status bar explains that playback
+The same degradation covers missing mpv: an error toast and the player's state slot explain that playback
 needs it while the rest of the app keeps working.
 
 ---
@@ -345,7 +442,7 @@ pipeline, IPC details, and known tradeoffs.
 | `tests/test_player.py` | IPC command/response, event ordering, stream errors |
 | `tests/test_store.py` | roundtrip, atomic writes, corrupt-state quarantine, history bounds |
 | `tests/test_geo_globe.py` | bundled assets, projection roundtrips, hit testing, marker priority, ASCII mode, golden frame |
-| `tests/test_app.py` | Textual pilot flows with injected client and player fakes |
+| `tests/test_app.py` | Textual pilot flows with injected client and player fakes; compositor readback (cells, colors, contrast) at 120×40, 100×32, 80×24 and 60×24 |
 | `tests/test_cli.py` | argument parsing, version output, missing assets |
 
 Regenerate the bundled assets:
