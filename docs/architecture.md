@@ -7,8 +7,10 @@ Radio Atlas is a Textual application with three independent edges: a geographic 
 | Module | Responsibility |
 | --- | --- |
 | `radio_atlas/app.py` | Textual app, view modes, key bindings, workers, search, playback orchestration |
-| `radio_atlas/app.tcss` | Layout and theme |
-| `radio_atlas/widgets/` | Globe canvas, DataTables, header, now-playing panel, status bar, help modal |
+| `radio_atlas/app.tcss` | Layout, theme and the `.narrow` / `.compact` responsive classes |
+| `radio_atlas/widgets/panels.py` | Icon mapping (`ICON_CODEPOINTS`, `ICONS`, `ASCII_ICONS`, `icon_text`), `AtlasHeader`, `PlayerInfo`, `NowPlaying`, `Transport`, `VolumeBar`, `KeyFooter` (key chips and toast) |
+| `radio_atlas/widgets/tables.py` | `StationsTable` (two-line rows, star column), genres, countries and cities tables |
+| `radio_atlas/widgets/globe.py`, `help.py` | Globe canvas; keyboard help modal |
 | `radio_atlas/globe.py` | Orthographic projection, braille rasterizer, markers, hit testing |
 | `radio_atlas/geo.py` | Country index and country mask lookup |
 | `radio_atlas/models.py` | `Station`, `Country`, `HistoryEntry`, normalization, metadata parsing |
@@ -26,7 +28,7 @@ Radio Atlas is a Textual application with three independent edges: a geographic 
 1. `MpvPlayer.start()` spawns mpv or reports it missing.
 2. `RadioBrowserClient.world()` fetches the top-clicked stations.
 
-Both are best-effort. The UI is interactive before either finishes, and every failure becomes a status line rather than an exception.
+Both are best-effort. The UI is interactive before either finishes, and every failure becomes a toast or an inline player state rather than an exception.
 
 ## Directory client
 
@@ -76,7 +78,7 @@ The IPC socket lives in a private `mkdtemp` directory under the system temp dire
 
 `parse_track()` strips a leading station name only when it is the whole value or followed by a separator, so an artist like "Rockwell" on a station named "Rock" is not lost, then splits `Artist - Title` variants.
 
-`NullPlayer` implements the same surface when mpv is unavailable. Playback actions return `False`, the status bar explains the requirement, and the rest of the app remains usable.
+`NullPlayer` implements the same surface when mpv is unavailable. Playback actions return `False`, an error toast and the player's state slot explain the requirement, and the rest of the app remains usable.
 
 ## Persistence
 
@@ -84,33 +86,68 @@ The IPC socket lives in a private `mkdtemp` directory under the system temp dire
 
 `DiskCache` uses the same atomic-write pattern for API responses. Cache keys are sanitized to a filesystem-safe filename, and entries larger than 16 MB are ignored on read.
 
-## UI state machine
+## UI layout
 
-The terminal layout places a full-height globe on the left and navigation,
-the active table, now-playing metadata, and transport buttons on the right.
-Search lives in the top bar alongside random and quit controls. Buttons call
-the existing `action_*` methods; keyboard bindings remain available. Station
-cards use UUID row keys and show favorite indicators from `Store.favorite_ids`.
+A full-height globe sits on the left; the right column stacks tabs, the active table, the player and (outside it) the footer. Buttons call the existing `action_*` methods, so mouse and keyboard share one code path.
 
-Search moves to a full-width bordered row below 100 columns. Below 72 columns,
-a map-context strip replaces the globe, leaving a full-width station workspace.
-Transport controls are icon-only, three rows tall; tooltips carry the action and
-shortcut (`Pause · space` while playing, `Play · space` otherwise). The row ends
-with a filled `☆ Favorite` / `★ Favorited` button for the playing station (or
-the selection when idle). `Transport` measures its own width: below 38 cells the
-button shortens to `☆`/`★`, and below 35/42 cells (short/full button) the `70%`
-readout hides.
-The player has a separate labeled boundary and shows green `● LIVE` only for
-`playing`, not `paused` or rejected playback.
+| Widget | Role |
+| --- | --- |
+| `AtlasHeader` | one row: signal icon, brand, `MODE · N STATIONS`, source badge; the underlined search field sits beside it |
+| `StationsTable` | two-line rows, `▶` gutter marker, bounded 5-cell star column |
+| `PlayerInfo` | container holding `NowPlaying` and the floating `#player-favorite` button |
+| `NowPlaying` | three text lines under a top rule (see below) |
+| `Transport` | the control row: transport group on the left, volume group on the right |
+| `VolumeBar` | `VOL ▮▮▮▯ 85%`; clickable segments |
+| `KeyFooter` | toast rule plus clickable key chips |
 
-`StationsTable` uses fixed viewport-bounded station/favorite columns, reserving
-cell padding and a scrollbar cell. On width changes it rebuilds the presentation
-through DataTable APIs and restores selection by UUID; it does not refetch data
-or modify favorites/history. The favorite column is a 4-cell click target:
-`StationsTable.FavoriteClicked` carries that row's station id to
-`RadioAtlasApp._toggle_favorite`, the helper shared by the `f` key, the row star
-and the player button. Names ellipsize, metadata remains on a second line,
-and horizontal keys/gestures cannot scroll the station names out of view.
+Random and quit have no buttons any more; they stay on `r` / `q` and in the footer chips.
+
+### Player row budget
+
+The player is **6 rows** (7 when the volume group wraps):
+
+| Row | Content |
+| --- | --- |
+| 1 | top rule (the border of `NowPlaying`) |
+| 2 | dim `NOW PLAYING` left, state right: green icon + `LIVE` only while `playing`, else `PAUSED`, `STOPPED` or the error text (ellipsized) |
+| 3 | bold station name, ellipsized so the star always fits, then the star one cell after it |
+| 4 | muted `title · CODEC · NNN kbps`; the title is `artist — title` when known, else `country · state`; only the title part is ellipsized |
+| 5 | blank breathing row (top padding of `Transport`) |
+| 6 | controls: Previous, Play/Pause, Next, Stop (3/5/3/3 columns, 2-column gaps; Play/Pause is a filled lavender pill) on the left; speaker button + `VolumeBar` right-aligned |
+
+The Play/Pause glyph inherits the button foreground (dark ink on lavender) instead of carrying its own Rich color, so hover and focus keep their contrast.
+
+`#player-favorite` is a 3×1 button. `PlayerInfo.place_favorite` offsets it to the cell after the clipped station name (re-run on every update and resize). It keeps its id, tooltips and the `f` / row-star sync.
+
+### Volume
+
+`VolumeBar` renders at most `MAX_SLOTS = 24` segments and keeps the percentage one space after the bar. Its width shrinks first when space is short, down to `MIN_SLOTS = 6`; the buttons and the percentage never shrink. The volume group has a 2-column left margin, so the gap to Stop is at least 2 columns. `Transport.on_resize` adds the `wrapped` class when its content is narrower than `MIN_WIDTH = 41`; the volume group then moves to a second row. Clicking a segment posts `VolumeBar.Changed`; the app turns it into a delta and calls `_change_volume`, the same path as `[` / `]`, so the level persists in the store.
+
+### Responsive classes
+
+`RadioAtlasApp.on_resize` toggles two classes on the app; there is no `.roomy` class any more.
+
+| Class | Width | Effect |
+| --- | --- | --- |
+| `.narrow` | < 100 | search moves to its own full-width row, side panel widens (2fr) |
+| `.compact` | < 72 | a map-context strip replaces the globe; the station workspace is full width |
+| `wrapped` (on `Transport`) | content < 41 | volume group on its own row |
+
+### Icons
+
+Icons come from one named mapping in `widgets/panels.py`: `ICON_CODEPOINTS` (Font Awesome 4.7 private-use codepoints provided by a Nerd Font), expanded into `ICONS`, with `ASCII_ICONS` as the `--ascii` fallback. `icon_text(name, ascii_mode=..., active=...)` returns the styled glyph. Stars are U+F006 (outline, muted) and U+F005 (filled, `FAVORITE_COLOR` `#f5c542`). The app does not scale fonts; it widens click targets instead. Without a Nerd Font, private-use characters render as tofu; selecting a font is a terminal setting and the app never installs one.
+
+### Favorites
+
+All three entry points converge on `RadioAtlasApp._toggle_favorite(station)`: the `f` key (`action_favorite`, current selection), the player star (`_toggle_player_favorite`, playing station or the selection when idle) and the row star (`StationsTable.FavoriteClicked` → `_star_clicked`). It updates `Store.favorite_ids`, then calls `_sync_globe`, repopulates the table when the Favorites tab is open, runs `_refresh_player_views` (labels, tooltips, button state) and posts a toast.
+
+### Toasts and footer
+
+`KeyFooter` replaced the old status bar. `_set_status` calls `KeyFooter.set_notice(message, tone)`, which draws the message on the footer's rule row for `DURATIONS[tone]` seconds (info/good 3, warn 8, error 12). The second row draws the visible `RadioAtlasApp.BINDINGS` as clickable key chips and drops the lowest-priority chips (`CHIP_PRIORITY`) when the width is short. Connectivity is disclosed by the header badge, and player errors by the state slot, so nothing depends on a toast being on screen.
+
+### Station list
+
+`StationsTable` uses fixed viewport-bounded marker/station/star columns, reserving cell padding and a scrollbar cell. Rows are two lines tall (name, then `CC · codec · kbps`), and `update_playing` puts a `▶` in the gutter of the playing or paused station. On width changes it rebuilds the presentation through DataTable APIs and restores selection by UUID; it does not refetch data or modify favorites/history. The star column is a click target spanning each two-line row. Names ellipsize, and horizontal keys/gestures cannot scroll them out of view.
 
 Modes are `world`, `favorites`, `recent`, `search`, `countries`, `cities`, and `stations`. Only one DataTable is visible at a time; each keeps its own cursor state. `esc` unwinds the browsing hierarchy, and search remembers the view that opened it.
 
@@ -124,7 +161,7 @@ Network lookups run in exclusive Textual workers. Search debounces for 350 ms an
 - `tests/test_player.py`: IPC command/response, event ordering, state transitions, and stream errors against a fake mpv socket server.
 - `tests/test_store.py`: roundtrip, atomic writes, corrupt-state quarantine, history bounds.
 - `tests/test_geo_globe.py`: bundled assets, projection roundtrips, hit testing, marker priority, ASCII mode, and a golden frame.
-- `tests/test_app.py`: Textual pilot flows with injected client and player fakes; compositor readback at 120×40, 100×32, 80×24, and 60×24, long-name horizontal/resize recovery, search borders, empty selections, control hit areas, and truthful LIVE states.
+- `tests/test_app.py`: Textual pilot flows with injected client and player fakes; compositor readback (cells, colors, contrast) at 120×40, 100×32, 80×24, and 60×24, the 6-row player block, long-name and resize recovery, search field, empty selections, control hit areas, truthful LIVE states, and a pinned key-footer rendering.
 - `tests/test_cli.py`: argument parsing, version output, and missing-asset handling.
 
 ## Known tradeoffs

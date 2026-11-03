@@ -1,42 +1,74 @@
+/* Palette follows the reference screenshot: near-black ground, lavender accent. */
+$atlas-bg: #0c0c15;
+$atlas-panel: #090b12;
+$atlas-text: #e4e4ec;
+$atlas-muted: #9a9aa8;
+$atlas-accent: #b49cf0;
+$atlas-accent-ink: #14101f;
+$atlas-rule: #6f5fa8;
+$atlas-select: #3b2f5c;
+$atlas-hover: #1d1d2e;
+
 Screen {
-    background: #111119;
-    color: #c6c6cd;
+    background: $atlas-bg;
+    color: $atlas-text;
 }
 
+/* One header row plus a lavender rule; narrow terminals add a search row. */
 #top-bar {
-    height: 4;
-    background: #111119;
-    border-bottom: solid #292933;
+    height: 2;
+    background: $atlas-bg;
+    border-bottom: solid $atlas-rule;
 }
 
 #header {
-    width: 2fr;
-    height: 2;
+    width: 1fr;
+    height: 1;
     padding: 0 1;
-    background: #111119;
+    background: $atlas-bg;
     border: none;
 }
 
 #search-box {
-    width: 1fr;
-    min-width: 24;
-    height: 3;
+    width: 34;
+    height: 1;
+    margin: 0 1 0 0;
 }
 
+#search-icon {
+    width: 2;
+    height: 1;
+    color: $atlas-accent;
+    text-style: underline;
+}
+
+/* The search field is an underline, not a box. */
 #search-input, #search-trigger {
     width: 1fr;
-    height: 3;
+    height: 1;
     margin: 0;
-    padding: 0 1;
-    border: solid #555560;
-    background: #191921;
-    color: #c6c6cd;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: $atlas-accent;
+    text-style: underline;
     content-align: left middle;
     text-align: left;
 }
 
 #search-input:focus, #search-trigger:focus {
-    border: solid #a5a0c4;
+    border: none;
+    background: $atlas-hover;
+    text-style: bold underline;
+}
+
+#search-input > .input--cursor {
+    background: $atlas-accent;
+    color: $atlas-accent-ink;
+}
+
+#search-input > .input--placeholder {
+    color: $atlas-muted;
 }
 
 Button {
@@ -45,26 +77,15 @@ Button {
     padding: 0;
     border: none;
     background: transparent;
-    color: #bfc0c8;
+    color: $atlas-text;
     text-style: none;
     content-align: center middle;
 }
 
 Button:hover, Button:focus {
-    background: #262630;
-    color: #e1e1e7;
+    background: $atlas-hover;
+    color: #ffffff;
     text-style: none;
-}
-
-Button.active {
-    color: #b1a9dc;
-    background: #22222c;
-}
-
-#control-random, #control-quit {
-    width: 4;
-    height: 2;
-    content-align: center middle;
 }
 
 #main {
@@ -72,10 +93,10 @@ Button.active {
 }
 
 #left-panel {
-    width: 2fr;
+    width: 1fr;
     min-width: 24;
     height: 1fr;
-    background: #090b0d;
+    background: $atlas-panel;
 }
 
 #globe {
@@ -87,25 +108,42 @@ Button.active {
     width: 1fr;
     min-width: 32;
     height: 1fr;
-    border-left: solid #292933;
-    background: #111119;
+    background: $atlas-bg;
 }
 
+/* Tabs: World │ Favorites │ Recent, active one underlined in lavender. */
 #navigation {
-    height: 3;
-    padding: 0;
-    border-bottom: solid #292933;
+    height: 2;
+    padding: 0 1;
+    border-bottom: solid $atlas-rule;
 }
 
 #navigation Button {
     width: auto;
-    padding: 0;
+    height: 1;
+    padding: 0 1;
+}
+
+#navigation Button.active {
+    color: $atlas-accent;
+    background: transparent;
+    text-style: bold underline;
+}
+
+#navigation Button:focus {
+    background: $atlas-hover;
+}
+
+.tab-sep {
+    width: 1;
+    height: 1;
+    color: $atlas-rule;
 }
 
 #list-heading {
     height: 1;
     padding: 0 1;
-    color: #aaaab5;
+    color: $atlas-muted;
     text-overflow: ellipsis;
     text-wrap: nowrap;
 }
@@ -120,66 +158,98 @@ Button.active {
 
 DataTable {
     height: 1fr;
-    background: #111119;
-    color: #c6c6cd;
+    background: $atlas-bg;
+    color: $atlas-text;
     scrollbar-color: #41414d;
-    scrollbar-background: #111119;
+    scrollbar-background: $atlas-bg;
     scrollbar-size-vertical: 1;
     scrollbar-size-horizontal: 0;
 }
 
 DataTable > .datatable--header {
     background: #191921;
-    color: #888892;
+    color: $atlas-muted;
     text-style: none;
 }
 
 DataTable > .datatable--cursor {
-    background: #33333d;
-    color: #e1e1e7;
+    background: $atlas-select;
+    color: #ffffff;
     text-style: none;
 }
 
 DataTable > .datatable--hover {
-    background: #22222c;
+    background: $atlas-hover;
 }
 
 DataTable > .datatable--even-row, DataTable > .datatable--odd-row {
-    background: #111119;
+    background: $atlas-bg;
 }
 
+#player-info {
+    height: 4;
+    layers: base top;
+}
+
+/* Top rule, then three lines on a shared 2-column axis: heading, station, metadata. */
 #now-playing {
-    height: 6;
-    padding: 0 1;
-    background: #111119;
-    border-top: solid #555560;
-    border-title-color: #aaaab5;
+    layer: base;
+    width: 1fr;
+    height: 4;
+    padding: 0 2;
+    background: $atlas-bg;
+    border-top: solid $atlas-rule;
     text-wrap: nowrap;
     text-overflow: ellipsis;
 }
 
-#transport {
-    height: 4;
-    align: left middle;
-    border-top: solid #555560;
+/* The favorite star floats over the station line; Python pins it right after the name. */
+#player-favorite {
+    layer: top;
+    width: 3;
+    height: 1;
+    margin: 0;
+    content-align: center middle;
+    text-align: center;
 }
 
-/* Icon-only controls: 26 cells in total so the row fits the 31-cell side panel. */
-#transport Button {
-    width: 4;
+#player-favorite.active {
+    background: transparent;
+    color: #f5c542;
+    text-style: bold;
+}
+
+#player-favorite:disabled {
+    opacity: 50%;
+}
+
+/* One blank row, then a single control row; the volume group wraps below only when too narrow. */
+#transport {
+    height: 2;
+    padding: 1 2 0 2;
+}
+
+#transport.wrapped {
+    layout: vertical;
     height: 3;
+}
+
+#transport-buttons {
+    width: auto;
+    height: 1;
+}
+
+#transport Button {
+    width: 3;
+    height: 1;
+    margin: 0 2 0 0;
     padding: 0;
     content-align: center middle;
     text-align: center;
 }
 
-#transport #control-down, #transport #control-up {
-    width: 3;
-    background: #191921;
-}
-
 #transport Button:hover, #transport Button:focus {
-    background: #33333d;
+    background: #2a2a40;
     color: #ffffff;
 }
 
@@ -187,91 +257,71 @@ DataTable > .datatable--even-row, DataTable > .datatable--odd-row {
     text-style: bold;
 }
 
-#transport Button.-active {
-    background: #41414d;
-}
-
-#control-play {
-    color: #e1e1e7;
-}
-
-/* The favorite button is the largest, filled target in the row. */
-#transport #player-favorite {
-    width: 12;
-    height: 3;
-    margin-left: 1;
-    padding: 0;
-    background: #2b2940;
-    color: #e1e1e7;
-    text-wrap: nowrap;
-}
-
-#transport #player-favorite:hover, #transport #player-favorite:focus {
-    background: #3d3a5c;
-    color: #ffffff;
-}
-
-#transport #player-favorite.active {
-    background: #b1a9dc;
-    color: #111119;
+/* Filled lavender pill, as in the reference. */
+#transport #control-play {
+    width: 5;
+    background: $atlas-accent;
+    color: $atlas-accent-ink;
     text-style: bold;
 }
 
-#transport #player-favorite:disabled {
-    color: #555560;
-    background: #191921;
+#transport #control-play:hover, #transport #control-play:focus {
+    background: #cdbdf7;
+    color: $atlas-accent-ink;
 }
 
-#transport.short-favorite #player-favorite {
-    width: 5;
-    margin-left: 0;
+#transport #control-stop {
+    margin-right: 0;
 }
 
-#volume-label {
+#volume-group {
     width: 1fr;
-    height: 3;
-    content-align: right middle;
-    color: #888892;
-}
-
-#status-bar {
     height: 1;
-    background: #090b0d;
-    color: #777781;
-    border: none;
+    margin-left: 2;
+    align-horizontal: right;
 }
 
-Footer {
+#transport.wrapped #volume-group {
+    margin-left: 0;
+    align-horizontal: left;
+}
+
+#volume-group #control-mute {
+    margin: 0 1 0 0;
+}
+
+#transport #control-mute.active {
+    color: $atlas-accent;
+    text-style: bold;
+}
+
+/* 4 (VOL ) + 24 segments + 5 (percent) */
+#volume-bar {
+    width: 1fr;
+    max-width: 33;
     height: 1;
-    background: #111119;
-    color: #777781;
+    content-align: left middle;
 }
 
-Footer > .footer--key {
-    background: #22222c;
-    color: #a5a0c4;
-}
-
-Footer > .footer--description {
-    color: #888892;
+#key-footer {
+    height: 2;
+    background: $atlas-bg;
 }
 
 /* Search gets its own complete row before the header becomes crowded. */
 .narrow #top-bar {
-    height: 6;
+    height: 3;
 }
 
 .narrow #search-box {
     dock: bottom;
     width: 1fr;
+    margin: 0;
+    padding: 0 1;
 }
 
-.narrow #header {
-    width: 1fr;
-}
-
-#transport.no-readout #volume-label {
-    display: none;
+.narrow #side-panel {
+    width: 2fr;
 }
 
 /* Keep the station workspace usable below the split-pane minimum. */
@@ -283,8 +333,8 @@ Footer > .footer--description {
     display: block;
     height: 1;
     padding: 0 1;
-    color: #aaaab5;
-    background: #090b0d;
+    color: $atlas-muted;
+    background: $atlas-panel;
 }
 
 .compact #left-panel {
@@ -295,8 +345,4 @@ Footer > .footer--description {
     width: 1fr;
     min-width: 0;
     border-left: none;
-}
-
-.compact #now-playing {
-    height: 5;
 }

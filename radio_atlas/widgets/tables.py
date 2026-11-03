@@ -11,6 +11,7 @@ from textual.widgets import DataTable
 
 from ..genres import Genre
 from ..models import Country, Station, format_count
+from .panels import ACCENT, FAVORITE_COLOR, ICONS, MUTED, TEXT
 
 EMPTY_KEY = "__empty__"
 ALL_CITIES_KEY = "__all__"
@@ -28,31 +29,31 @@ def _cell(value: str, width: int, *, style: str = "", justify: Literal["left", "
     )
 
 
-FAVORITE_WIDTH = 4
+FAVORITE_WIDTH = 5
+MARKER_WIDTH = 1
+ROW_HEIGHT = 2
 
 
-def _star(active: bool) -> Text:
-    # The whole 3-row cell is the click target; the glyph aligns with the name.
-    return Text(
-        "★" if active else "☆",
-        style="bold #a5a0c4" if active else "#c6c6cd",
-        justify="center",
-    )
+def _marker(playing: bool) -> Text:
+    return Text("▶" if playing else " ", style=f"bold {ACCENT}", no_wrap=True)
 
 
 class StationsTable(DataTable):
     class FavoriteClicked(Message):
-        """A row's star was clicked; carries that row's station id."""
+        """A row's star block was clicked; carries that row's station id."""
 
         def __init__(self, station_id: str) -> None:
             super().__init__()
             self.station_id = station_id
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, *, ascii_mode: bool = False, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.ascii_mode = ascii_mode
+        self.tooltip = "Click the star at the right of a station row to toggle its favorite without playing it."
         self.stations: list[Station] = []
         self._index: dict[str, int] = {}
         self._favorite_ids: set[str] = set()
+        self._playing_id: str | None = None
         self._viewport_width = 0
 
     def on_mount(self) -> None:
@@ -76,45 +77,69 @@ class StationsTable(DataTable):
         self._favorite_ids = set(favorite_ids or ())
         self._rebuild_rows()
 
+    def _star(self, active: bool) -> Text:
+        glyph = "[*]" if self.ascii_mode and active else (
+            "[ ]" if self.ascii_mode else (ICONS["star"] if active else ICONS["star_outline"])
+        )
+        color = FAVORITE_COLOR if active else MUTED
+        return Text(glyph, style=f"bold {color}" if active else color, justify="center", no_wrap=True)
+
     def _rebuild_rows(self) -> None:
         # Reserve a scrollbar cell even before it appears. Fixed column widths
         # prevent End / horizontal scrolling from hiding the station names.
         self._viewport_width = self.size.width
-        favorite_width = FAVORITE_WIDTH
-        padding = self.cell_padding * 4
-        station_width = max(1, self.size.width - 1 - favorite_width - padding)
+        padding = self.cell_padding * 2 * 3
+        station_width = max(
+            1, self.size.width - 1 - MARKER_WIDTH - FAVORITE_WIDTH - padding
+        )
         self.clear(columns=True)
+        self.add_column("PLAYING", key="marker", width=MARKER_WIDTH)
         self.add_column("STATION", key="station", width=station_width)
-        self.add_column("FAVORITE", key="favorite", width=favorite_width)
+        self.add_column("STAR", key="favorite", width=FAVORITE_WIDTH)
         if not self.stations:
             self.add_row(
-                _cell("No stations here", 34, style="italic #777781"),
+                _cell("", MARKER_WIDTH),
+                _cell("No stations here", 34, style=f"italic {MUTED}"),
                 _cell("", FAVORITE_WIDTH),
                 key=EMPTY_KEY,
             )
             return
         for station in self.stations:
-            card = Text(station.name, style="bold #c6c6cd", no_wrap=True, overflow="ellipsis")
+            card = Text(station.name, style=f"bold {TEXT}", no_wrap=True, overflow="ellipsis")
             meta = " · ".join(part for part in (
                 station.country_code, station.codec,
                 f"{station.bitrate} kbps" if station.bitrate else "",
             ) if part)
-            card.append(f"\n{meta}", style="not bold #aaaab5")
-            self.add_row(card, _star(False), key=station.id, height=3)
-        self.update_favorites(self._favorite_ids)
+            card.append(f"\n{meta}", style=f"not bold {MUTED}")
+            self.add_row(
+                _marker(station.id == self._playing_id),
+                card,
+                self._star(station.id in self._favorite_ids),
+                key=station.id,
+                height=ROW_HEIGHT,
+            )
         if self.row_count:
             self.move_cursor(row=0, animate=False)
 
     def update_favorites(self, favorite_ids: set[str]) -> None:
+        changed = self._favorite_ids ^ set(favorite_ids)
         self._favorite_ids = set(favorite_ids)
-        for station in self.stations:
-            self.update_cell(station.id, "favorite", _star(station.id in favorite_ids))
+        for station_id in changed:
+            if station_id in self._index:
+                self.update_cell(station_id, "favorite", self._star(station_id in favorite_ids))
+
+    def update_playing(self, station_id: str | None) -> None:
+        """Mark the station that is playing or paused with a ▶ in the gutter."""
+        previous, self._playing_id = self._playing_id, station_id
+        for key in {previous, station_id}:
+            if key is not None and key in self._index:
+                self.update_cell(key, "marker", _marker(key == station_id))
 
     def on_click(self, event: events.Click) -> None:
         # A star click toggles that row only: keep it from moving the cursor or
         # selecting (and therefore playing) the row.
         meta = event.style.meta
-        if "row" not in meta or meta.get("column") != 1 or meta["row"] < 0:
+        if "row" not in meta or meta.get("column") != self.get_column_index("favorite") or meta["row"] < 0:
             return
         if meta["row"] >= len(self.ordered_rows):
             return
@@ -171,7 +196,7 @@ class CountriesTable(DataTable):
         self._by_code = {country.code: country for country in visible}
         if not visible:
             self.add_row(
-                _cell("No countries match", 30, style="italic #777781"),
+                _cell("No countries match", 30, style="italic #9a9aa8"),
                 _cell("", 4),
                 _cell("", 8),
                 key=EMPTY_KEY,
@@ -179,12 +204,12 @@ class CountriesTable(DataTable):
             return
         for country in visible:
             self.add_row(
-                _cell(country.name, 30, style="bold #c6c6cd"),
-                _cell(country.code, 4, style="#777781"),
+                _cell(country.name, 30, style="bold #e4e4ec"),
+                _cell(country.code, 4, style="#9a9aa8"),
                 _cell(
                     format_count(country.station_count),
                     9,
-                    style="#a5a0c4",
+                    style="#b49cf0",
                     justify="right",
                 ),
                 key=country.code,
@@ -227,18 +252,18 @@ class GenresTable(DataTable):
         self._by_tag = {genre.tag: genre for genre, _ in visible}
         if not visible:
             self.add_row(
-                _cell("No genres match", 28, style="italic #777781"),
+                _cell("No genres match", 28, style="italic #9a9aa8"),
                 _cell("", 8),
                 key=EMPTY_KEY,
             )
             return
         for genre, count in visible:
             self.add_row(
-                _cell(genre.name, 28, style="bold #c6c6cd"),
+                _cell(genre.name, 28, style="bold #e4e4ec"),
                 _cell(
                     format_count(count),
                     8,
-                    style="#a5a0c4",
+                    style="#b49cf0",
                     justify="right",
                 ),
                 key=genre.tag,
@@ -294,7 +319,7 @@ class CitiesTable(DataTable):
         self._visible_keys = []
         if total <= 0:
             self.add_row(
-                _cell("No cities found", 32, style="italic #777781"),
+                _cell("No cities found", 32, style="italic #9a9aa8"),
                 _cell("", 8),
                 key=EMPTY_KEY,
             )
@@ -303,8 +328,8 @@ class CitiesTable(DataTable):
             self._keys[ALL_CITIES_KEY] = ""
             self._visible_keys.append(ALL_CITIES_KEY)
             self.add_row(
-                _cell(f"All stations ({format_count(total)})", 32, style="bold #c6c6cd"),
-                _cell(format_count(total), 8, style="#a5a0c4", justify="right"),
+                _cell(f"All stations ({format_count(total)})", 32, style="bold #e4e4ec"),
+                _cell(format_count(total), 8, style="#b49cf0", justify="right"),
                 key=ALL_CITIES_KEY,
             )
         for city, count in visible:
@@ -313,8 +338,8 @@ class CitiesTable(DataTable):
             self._keys[key] = city
             self._visible_keys.append(key)
             self.add_row(
-                _cell(label, 32, style="#c6c6cd"),
-                _cell(format_count(count), 8, style="#a5a0c4", justify="right"),
+                _cell(label, 32, style="#e4e4ec"),
+                _cell(format_count(count), 8, style="#b49cf0", justify="right"),
                 key=key,
             )
         if self.row_count:

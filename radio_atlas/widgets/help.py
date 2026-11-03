@@ -39,7 +39,7 @@ SECTIONS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "Map",
         (
             ("H / L", "Rotate west or east"),
-            ("J / K", "Tilt north or south"),
+            ("J / K", "Tilt south or north"),
             ("+ / -", "Zoom in or out"),
             ("0", "Reset the map"),
             ("click", "Play a station or open a country"),
@@ -48,13 +48,15 @@ SECTIONS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Clickable controls",
         (
-            ("Top bar", "Search, random station, quit"),
-            ("Navigation", "World, Favorites, Recent"),
-            ("Transport", "⏮ ▶/❚❚ ⏭ ■ icons; hover for names and keys"),
-            ("Audio", "♪ mute, − / + volume"),
-            ("Stars", "Click a row's ☆/★ to favorite it; f toggles too"),
-            ("Favorite", "Large ☆/★ button beside the controls"),
-            ("● LIVE", "Green only while playing; never when paused"),
+            ("Search", "Click the search icon or press /; underline-only field"),
+            ("Tabs", "World │ Favorites │ Recent"),
+            ("Transport", "Previous, play/pause, next, stop icons (p, space, n, s)"),
+            ("Volume", "Click a VOL segment to set it; the speaker icon (right group) mutes"),
+            ("Stars", "Click the star icon at the row's right edge; f toggles"),
+            ("Player star", "Outline/filled star icon right after the station name"),
+            ("Font", "Select a Nerd Font in your terminal; --ascii avoids icons"),
+            ("Footer", "Click a key chip to run it; narrow views drop chips"),
+            ("LIVE", "Green only while playing; PAUSED/STOPPED otherwise"),
             ("Compact view", "Map becomes a context strip; all keys still work"),
         ),
     ),
@@ -73,17 +75,17 @@ SECTIONS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
 
 def help_content() -> Text:
     text = Text()
-    text.append("RADIO ATLAS", style="bold #a5a0c4")
-    text.append(" · keys\n", style="italic #777781")
-    text.append("A map of live radio. No account, no tracking.\n", style="#888892")
+    text.append("RADIO ATLAS", style="bold #b49cf0")
+    text.append(" · keys\n", style="italic #9a9aa8")
+    text.append("A map of live radio. No account, no tracking.\n", style="#9a9aa8")
     for heading, rows in SECTIONS:
         text.append("\n")
-        text.append(heading.upper(), style="bold #a5a0c4")
+        text.append(heading.upper(), style="bold #b49cf0")
         text.append("\n")
         for keys, description in rows:
-            text.append(f"› {keys:<18}", style="bold #c6c6cd")
-            text.append(f"{description}\n", style="#c6c6cd")
-    text.append("\nPress ? or esc to close.", style="italic #777781")
+            text.append(f"› {keys:<18}", style="bold #e4e4ec")
+            text.append(f"{description}\n", style="#e4e4ec")
+    text.append("\nPress ? or esc to close.", style="italic #9a9aa8")
     return text
 
 
@@ -105,14 +107,14 @@ class HelpScreen(ModalScreen[None]):
         height: 85%;
         max-height: 85%;
         background: #111119;
-        border: round #a5a0c4;
+        border: round #b49cf0;
         padding: 1 2;
     }
     #help-scroll {
         height: 1fr;
         scrollbar-color: #41414d;
-        scrollbar-color-hover: #777781;
-        scrollbar-color-active: #a5a0c4;
+        scrollbar-color-hover: #9a9aa8;
+        scrollbar-color-active: #b49cf0;
         scrollbar-background: #111119;
     }
     #help-content {
