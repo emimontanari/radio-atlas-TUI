@@ -31,6 +31,8 @@ Built with [Textual](https://textual.textualize.io/), the
 [Radio Browser](https://www.radio-browser.info/) directory, and
 [mpv](https://mpv.io/) for playback. No account, no telemetry, no browser tab.
 
+[![Built with Gentle-AI](https://raw.githubusercontent.com/Gentleman-Programming/gentle-ai/main/docs/assets/brand/built-with-gentle-ai.png)](https://github.com/Gentleman-Programming/gentle-ai)
+
 ## Quick start
 
 | You need | Why |
