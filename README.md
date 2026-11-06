@@ -31,8 +31,6 @@ Built with [Textual](https://textual.textualize.io/), the
 [Radio Browser](https://www.radio-browser.info/) directory, and
 [mpv](https://mpv.io/) for playback. No account, no telemetry, no browser tab.
 
-[![Built with Gentle-AI](https://raw.githubusercontent.com/Gentleman-Programming/gentle-ai/main/docs/assets/brand/built-with-gentle-ai.png)](https://github.com/Gentleman-Programming/gentle-ai)
-
 ## Quick start
 
 | You need | Why |
@@ -49,11 +47,7 @@ radio-atlas
 Radio Atlas never installs fonts or edits terminal settings. Pick a Nerd Font
 in your terminal's own font settings. Full steps are in [Install](#install).
 
-![Radio Atlas playing SomaFM Groove Salad (previous layout)](docs/screenshot.png)
-
-> `docs/screenshot.png` shows the **previous** layout and is kept only for
-> reference. The diagram below describes the current UI; the design reference
-> lives in [`design/atlas-reference/`](design/atlas-reference/).
+![Radio Atlas playing RTL from the live directory](docs/screenshot.png)
 
 ---
 
@@ -460,3 +454,11 @@ Regenerate the bundled assets:
 
 MIT. Bundled country geometry derives from Natural Earth (public domain). Seed
 station names and stream URLs belong to their respective broadcasters.
+
+---
+
+<p align="center">
+  <a href="https://github.com/Gentleman-Programming/gentle-ai">
+    <img width="220" src="https://raw.githubusercontent.com/Gentleman-Programming/gentle-ai/main/docs/assets/brand/built-with-gentle-ai.png" alt="Built with Gentle-AI" />
+  </a>
+</p>
